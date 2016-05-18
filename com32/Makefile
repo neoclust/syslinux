@@ -1,5 +1,5 @@
 SUBDIRS = tools lib libutil gpllib libupload elflink/ldlinux modules mboot \
-	  menu samples elflink rosh cmenu hdt gfxboot sysdump lua/src chain
+	  menu samples elflink rosh cmenu hdt inventory gfxboot sysdump lua/src chain
 
 .PHONY: subdirs $(SUBDIRS)
 subdirs: $(SUBDIRS)
@@ -14,8 +14,9 @@ all tidy dist clean spotless install: subdirs
 elflink/ldlinux gpllib libupload libutil: lib
 cmenu: lib libutil
 
-chain gfxboot mboot menu modules rosh: lib libutil gpllib
+chain gfxboot mboot menu modules rosh: lib libutil gpllib libupload elflink/ldlinux
 hdt: lib libutil gpllib libupload cmenu
 lua/src: lib libutil gpllib cmenu
 samples: lib libutil gpllib elflink/ldlinux
 sysdump: lib libutil gpllib libupload
+inventory: lib libutil gpllib libupload cmenu
