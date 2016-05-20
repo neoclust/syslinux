@@ -21,14 +21,7 @@
  *   HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
  *   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  *   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
- *   OTHER DEALINGS IN THE SOFTWARE.
- * /usr/bin/gcc -std=gnu99 -m32 -march=i386 -mpreferred-stack-boundary=2 -Os -fomit-frame-pointer -fno-stack-protector -fwrapv -freg-struct-return -fno-exceptions -fno-asynchronous-unwind-tables -fPIC -falign-functions=0 -falign-jumps=0 -falign-labels=0 -falign-loops=0 -mregparm=3 -DREGPARM=3 -W -Wall -Wstrict-prototypes -W -Wall -fomit-frame-pointer -D__COM32__ -D__FIRMWARE_BIOS__ -DDYNAMIC_MODULE -nostdinc -iwithprefix include -I/root/syslinux-6.04-pre1/com32/libutil/include -I/root/syslinux-6.04-pre1/com32/include -I/root/syslinux-6.04-pre1/com32/include/sys -I/root/syslinux-6.04-pre1/com32/gplinclude -I/root/syslinux-6.04-pre1/core/include -I/root/syslinux-6.04-pre1/bios -DLDLINUX="ldlinux.c32" -I/root/syslinux-6.04-pre1/com32/modules/../../core/lwip/src/include -I/root/syslinux-6.04-pre1/com32/modules/../../core/lwip/src/include/ipv4 -I/root/syslinux-6.04-pre1/com32/gplinclude -c  /root/syslinux-6.04-pre1/com32/modules/inventory.c -o /root/dede.prog
-
- 
- 
- /usr/bin/gcc -std=gnu99 -m32 -march=i386 -mpreferred-stack-boundary=2 -Os -fomit-frame-pointer -fno-stack-protector -fwrapv -freg-struct-return -fno-exceptions -fno-asynchronous-unwind-tables -fPIC -falign-functions=0 -falign-jumps=0 -falign-labels=0 -falign-loops=0 -mregparm=3 -DREGPARM=3 -W -Wall -Wstrict-prototypes -W -Wall -fomit-frame-pointer -D__COM32__ -D__FIRMWARE_BIOS__ -DDYNAMIC_MODULE -nostdinc -iwithprefix include -I/root/syslinux-6.04-pre1/com32/libutil/include -I/root/syslinux-6.04-pre1/com32/include -I/root/syslinux-6.04-pre1/com32/include/sys -I/root/syslinux-6.04-pre1/com32/gplinclude -I/root/syslinux-6.04-pre1/core/include -I/root/syslinux-6.04-pre1/bios -DLDLINUX="ldlinux.c32" -I/root/syslinux-6.04-pre1/com32/modules/../../core/lwip/src/include -I/root/syslinux-6.04-pre1/com32/modules/../../core/lwip/src/include/ipv4 -I/root/syslinux-6.04-pre1/com32/gplinclude -L/root/syslinux-6.04-pre1/bios/core -llpxelinux.a -c  /root/syslinux-6.04-pre1/com32/modules/inventory.c -o /root/dede.prog
- 
- 
+ *   OTHER DEALINGS IN THE SOFTWARE. 
  * -----------------------------------------------------------------------
 */
 
@@ -43,7 +36,6 @@
 #include <console.h>
 #include "dmi/dmi.h"
 #include <stdio.h>
-
 #include "inventory.h"
 #include "syslinux/pxe.h"
 #include <syslinux/boot.h>
@@ -54,60 +46,24 @@
 #include <string.h>
 #include "../cmenu/libmenu/cmenu.h"
 #include "../cmenu/libmenu/com32io.h"
-#include <netinet/in.h>
-
-
-#include <disk/common.h>
-#include <disk/geom.h>
-#include <disk/read.h>
-#include <core.h>
-#include <net.h>
+// #include <netinet/in.h>
+// #include <disk/common.h>
+// #include <disk/geom.h>
+// #include <disk/read.h>
+// #include <core.h>
+// #include <net.h>
 
 #include <libupload/upload_backend.h>
 
+#include "hdt-common.h"
 
-// #include "lwip/err.h"
-// #include "lwip/udp.h"
-// 
-// #include "lwip/ip_addr.h"
-// #include "lwip/memp.h"
-// 
-// #include "lwip/opt.h"
-// 
-// #include "lwip/init.h"
-// #include "lwip/stats.h"
-// #include "lwip/sys.h"
-// #include "lwip/mem.h"
-// #include "lwip/pbuf.h"
-// #include "lwip/netif.h"
-// #include "lwip/sockets.h"
-// #include "lwip/ip.h"
-// #include "lwip/raw.h"
-// 
-// #include "lwip/tcp_impl.h"
-// #include "lwip/snmp_msg.h"
-// #include "lwip/autoip.h"
-// #include "lwip/igmp.h"
-// #include "lwip/dns.h"
-// #include "lwip/timers.h"
-// #include "netif/etharp.h"
-
-// #include <stdlib.h>
-// #include <string.h>
-// #include <stdio.h>
-// #include <getkey.h>
-// #include "syslinux/config.h"
-// #include "../lib/sys/vesa/vesa.h"
-// 
-// #include <disk/util.h>
-// #include <disk/mbrs.h>
-// #include <memory.h>
-
+int display_line_nb = 0;
+bool disable_more_printf = false;
 int result0,result1,result2;
-
+int max_console_lines = MAX_CLI_LINES;
 #define sub(val) (((val%1024)*100)>>10)
 void timeval(struct timeval *tm);
-int detect_pxe(struct s_pxe *pxe);
+int detect_pxelocal(struct s_pxe *pxe);
 
 static uint8_t frombcd(uint8_t v)
 { /*binary codage decimal*/
@@ -145,7 +101,7 @@ void timeval(struct timeval *tm)
 // get_derivative_info
 // const union syslinux_derivative_info *sdi =
 // 	syslinux_derivative_info();
-int detect_pxe(struct s_pxe *pxe)
+int detect_pxelocal(struct s_pxe *pxe)
 {
     void *dhcpdata;
     //struct s_pxe pxe;struct s_pxe *p
@@ -170,12 +126,17 @@ int detect_pxe(struct s_pxe *pxe)
 return 0;
 }
 	
+void printpointmsleep(int millisecond, int nbpoint){
+    for (int t=0;t <= nbpoint; t++){
+        msleep(millisecond);
+        printf(".");
+    }
+}	
+	
 char display_line;
 
-
-
 /* Try to detect disks from port 0x80 to 0xff */
-void detect_disks(struct driveinfo *disk_info, int *nbdisk)
+void detect_diskslocal(struct driveinfo *disk_info, int *nbdisk)
 {
     int i = -1;
     int err;
@@ -193,7 +154,7 @@ void detect_disks(struct driveinfo *disk_info, int *nbdisk)
 	(*nbdisk)++;
     }
 }
-void sectors_to_size(int sectors, char *buffer)
+void sectors_to_sizelocal(int sectors, char *buffer)
 {
     int b = (sectors / 2);
     int mib = b >> 10;
@@ -211,17 +172,17 @@ void sectors_to_size(int sectors, char *buffer)
 }
 
 /* remove begining spaces */
-char *skip_spaces(char *p)
+/*char *skip_spaceslocal(char *p)
 {
     while (*p && *p <= ' ') {
 	p++;
     }
 
     return p;
-}
+}*/
 
 /* remove trailing & begining spaces */
-char *remove_spaces(char *p)
+char *remove_spaceslocal(char *p)
 {
     char *save = p;
     p += strlen(p) - 1;
@@ -238,19 +199,19 @@ char *remove_spaces(char *p)
 }
 
 /* remove trailing LF */
-char *remove_trailing_lf(char *p)
-{
-    char *save = p;
-    p += strlen(p) - 1;
-    while (*p && *p == 10) {
-	*p = '\0';
-	p--;
-    }
-    p = save;
-
-    return p;
-}
-void disks_summary(struct driveinfo *disk_info)
+// char *remove_trailing_lflocal(char *p)
+// {
+//     char *save = p;
+//     p += strlen(p) - 1;
+//     while (*p && *p == 10) {
+// 	*p = '\0';
+// 	p--;
+//     }
+//     p = save;
+// 
+//     return p;
+// }
+void disks_summarylocal(struct driveinfo *disk_info)
 {
     int i = -1;
     bool found = false;
@@ -264,7 +225,7 @@ void disks_summary(struct driveinfo *disk_info)
 	char disk_size[11];
 
 	if ((int)d->edd_params.sectors > 0)
-	    sectors_to_size((int)d->edd_params.sectors, disk_size);
+	    sectors_to_sizelocal((int)d->edd_params.sectors, disk_size);
 	else
 	    memset(disk_size, 0, sizeof disk_size);
 
@@ -278,8 +239,8 @@ void disks_summary(struct driveinfo *disk_info)
 	/* Do not print Host Bus & Interface if EDD isn't 3.0 or more */
 	if (d->edd_version >= 0x30)
 	    moreprintf("         Host bus: %s, Interface type: %s\n\n",
-			remove_spaces((char *)d->edd_params.host_bus_type),
-			remove_spaces((char *)d->edd_params.interface_type));
+			remove_spaceslocal((char *)d->edd_params.host_bus_type),
+			remove_spaceslocal((char *)d->edd_params.interface_type));
     }
 
     if (found == false)
@@ -300,97 +261,12 @@ void disks_size_first_disk(struct driveinfo *disk_info, char *disk_size)
     //char disk_size[11];
 
     if ((int)d->edd_params.sectors > 0)
-        sectors_to_size((int)d->edd_params.sectors, disk_size);
+        sectors_to_sizelocal((int)d->edd_params.sectors, disk_size);
     else
         memset(disk_size, 0, sizeof disk_size);
 }
-// void core_udp_sendto(struct pxe_pvt_inode *socket, const void *data, size_t len,
-//                      uint32_t ip, uint16_t port)
-// {
-//     static __lowmem struct s_PXENV_UDP_WRITE udp_write;
-//     void *lbuf;
-//     uint16_t tid;
-//     IP4_ADDR1(tid,127,0,0,1);
-// 
-//     lbuf = lmalloc(len);
-//     if (!lbuf)
-// 	return;
-// 
-//     memcpy(lbuf, data, len);
-//     udp_write.buffer    = FAR_PTR(lbuf);
-//     udp_write.ip        = ip;
-//     udp_write.gw        = gateway(udp_write.ip);
-//     udp_write.src_port  = tid;
-//     udp_write.dst_port  = htons(port);
-//     udp_write.buffer_size = len;
-// 
-//     pxe_call(PXENV_UDP_WRITE, &udp_write);
-// 
-//     lfree(lbuf);
-// }
-//   /*
-//  * Compute the suitable gateway for a specific route -- too many
-//  * vendor PXE stacks don't do this correctly...
-//  */
-// static inline uint32_t gateway(uint32_t ip)
-// {
-//     if ((ip ^ IPInfo.myip) & IPInfo.netmask)
-// 	return IPInfo.gateway;
-//     else
-// 	return 0;
-// }
 
-int senddata( const char * buffer, uint32_t *myip , uint32_t *toip, uint32_t *gwip, uint16_t  toport, uint16_t  fromport ){
-    void *lbuf;
-    struct s_PXENV_UDP_OPEN udp_open;
-    udp_open.status = 0;//PXENV_STATUS_FAILURE
-    udp_open.src_ip = *myip;
-//     result0 = pxe_call(PXENV_UDP_OPEN, &udp_open);
-//     if (udp_open.status != PXENV_STATUS_SUCCESS) {
-// 	printf("probleme ouverture udp connexion: %d\n", udp_open.status);
-//     }
-    int err = pxe_call(PXENV_UDP_OPEN, &udp_open);
-    if (err || udp_open.status) {
-        printf("Failed to initialize UDP stack ");
-        printf("%d\n", udp_open.status);
-	kaboom();
-        return 0;
-    }
-    lbuf = lmalloc(sizeof(buffer));
-    if (!lbuf)
-	return 0;
-    memcpy(lbuf, buffer, sizeof(buffer));
-    printf("PXENV_STATUS_FAILURE=%d\n",PXENV_STATUS_FAILURE);
-    struct s_PXENV_UDP_WRITE udp_write;
-    udp_write.status = 0;
-    udp_write.ip = *toip;
-    udp_write.gw = *gwip;
-    udp_write.src_port = htons(fromport);
-    udp_write.dst_port = htons(toport);
-    udp_write.buffer = FAR_PTR(lbuf);
-    udp_write.buffer_size = sizeof(buffer);
-
-    result1 = pxe_call(PXENV_UDP_WRITE, &udp_write);
-    if (udp_write.status != PXENV_STATUS_UDP_OPEN) {
-	printf("probleme ecriture udp connexion: %d\n", udp_write.status);
-    }
-    lfree(lbuf);
-    struct s_PXENV_UDP_CLOSE udp_close;
-    udp_close.status = 1;
-     result2 = pxe_call(PXENV_UDP_CLOSE, &udp_close);
-    if (udp_close.status != PXENV_STATUS_UDP_CLOSED) {
-	printf("probleme ecriture udp connexion: %d\n", udp_close.status);
-    }
-
-    printf("\n\nPXENV_STATUS_FAILURE %d\n", PXENV_STATUS_FAILURE);
-    printf("\n\nPXENV_STATUS_UDP_OPEN %d\n", PXENV_STATUS_UDP_OPEN);
-    printf("PXENV_STATUS_UDP_CLOSED %d\n", PXENV_STATUS_UDP_CLOSED);
-    printf("probleme ouverture udp %d\n", udp_open.status);
-    printf("probleme ecriture udp : %d\n", udp_write.status);
-    printf("probleme close udp %d\n", udp_close.status);
-    return result2;
-}
-int main(void)//const int argc, const char *argv[]
+int main(const int argc, const char *argv[])
 {
     char buffer[1024];
     char hostname[90];
@@ -399,9 +275,20 @@ int main(void)//const int argc, const char *argv[]
     size_t len =0;
     struct driveinfo disk_info[256];	/* Disk Information */
     int nbdisk=0;
+    
+    
+     char version_string[256];
     //uint32_t mbr_ids[256];	/* MBR ids */
-    detect_disks(disk_info, &nbdisk);
-    disks_summary(disk_info);
+     snprintf(version_string, sizeof version_string, "%s %s (%s)",
+	     PRODUCT_NAME, VERSION, CODENAME);
+    static struct s_hardware hardware;
+    init_hardware(&hardware);
+    detect_syslinux(&hardware);
+    detect_parameters(argc, argv, &hardware);
+    detect_hardware(&hardware);
+    
+    detect_diskslocal(disk_info, &nbdisk);
+    disks_summarylocal(disk_info);
     //recuperation ip et macadress
     const union syslinux_derivative_info *sdi;
     char tftp_ip[50], gateway[50], netmask[50], myip[50], ipver[50], subnet[50];
@@ -414,15 +301,19 @@ int main(void)//const int argc, const char *argv[]
     uint32_t toip;
     uint32_t gwip;
     uint16_t  toport = 5005;
-    uint16_t  fromport = 5005;
+    uint16_t  fromport = 5006;
 
     hostname[0]=0;
     int error = 0;
     sdi = syslinux_derivative_info();
-    detect_pxe(&pxe);
+    detect_pxelocal(&pxe);
     timeval(&tm);
   
  
+    
+
+   
+   
     snprintf(date, sizeof(date),
 		 "%04d-%02d-%02d-%02d-%02d-%02d",
                                     (uint32_t) tm.year,
@@ -615,13 +506,13 @@ int main(void)//const int argc, const char *argv[]
     strncat(deviceid,"-",sizeof(deviceid));
     strncat(deviceid,date,sizeof(deviceid));
 
-    char bufferxml[4000];
+    char bufferxml[8000];
     char header[1024];
     char bios[1024];
-    char hardware[1024];
+    char hardwarelocal[1024];
     char networks[1024];
     char storages[1024];
-    bufferxml[0]=header[0]=bios[0]=hardware[0]=networks[0]=storages[0]=0;
+    bufferxml[0]=header[0]=bios[0]=hardwarelocal[0]=networks[0]=storages[0]=0;
     snprintf (header, 
             sizeof(header),
             "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<REQUEST>\n"
@@ -657,8 +548,8 @@ int main(void)//const int argc, const char *argv[]
                                     dmi.system.serial);
 
 
-    snprintf (hardware, 
-           sizeof(hardware),
+    snprintf (hardwarelocal, 
+           sizeof(hardwarelocal),
            "\t\t<HARDWARE>\n"
                 "\t\t\t<IPADDR>%s</IPADDR>\n"
                 "\t\t\t<DEFAULTGATEWAY>%s</DEFAULTGATEWAY>\n"
@@ -708,95 +599,17 @@ char foot[]="\t</CONTENT>\n"
 "</REQUEST>";
         char dataedit[100];
         clear_entire_screen();
-
-    strncpy(bufferxml,header,sizeof(bufferxml));
-
-    strncat(bufferxml,bios,sizeof(bufferxml));
-   
-    strncat(bufferxml,hardware,sizeof(bufferxml));
-      
-    strncat(bufferxml,networks,sizeof(bufferxml));
-      
-    strncat(bufferxml,storages,sizeof(bufferxml));
-       
-    strncat(bufferxml,foot,sizeof(bufferxml));
-     
-    //printf("nbdisk %d",nbdisk);
-        printf("xml \n%s\n",bufferxml);
-        printf("Maintenant il faut envoyé ce xml au servuer inventory\n");
-        printf("faire return pour reboot\n");
-        fgets( dataedit, sizeof dataedit, stdin);
-        char buffertest[255];
-
-        
- /*  
-    senddata("hello", &myipint ,&toip, &gwip, toport, fromport);
-    printf("%d %d %d %d\n",myipint,toip,gwip,toport);
-    printf("%d %d %d\n",result0,result1,result2);
-    fgets((char*) buffertest, sizeof buffertest, stdin);*/
- // enregistrer xml
- // cpio_writefile(upload, filename, p_buf.buf, p_buf.len);
- // envoyer xml
- 
-//flush_data(upload)
-// upload = &upload_tftp;
-// upload->name = "tftp";
-// 
-// char filename[512];
-// strcpy(filename,"fichiertest");
-// 
- upload = &upload_tftp;
- upload->name = "tftp";
-
-//     /* The following defines the behavior of the reporting */
-//     char *arg[64];
-//     /* The filename */
-//     arg[0] = filename;
-//     arg[1] = tftp_ip;
-//     arg[2] = NULL;
-//     /* We initiate the cpio to send */
-//     cpio_init(upload, (const char **)arg);
-// 
-//     cpio_close(upload);
-   // cpio_writefile(upload, "dede", bufferxml,strlen(bufferxml));
-//     if ((err = flush_data(upload)) != TFTP_OK) {
-// 	/* As we manage a tftp connection, let's display the associated error message */
-// 	more_printf("Dump failed !\n");
-// 	more_printf("TFTP ERROR on  : %s:/%s \n", hardware->tftp_ip, filename);
-// 	more_printf("TFTP ERROR num : %d \n", err);
-// 	more_printf("TFTP ERROR msg : %s \n", tftp_string_error_message[err]);
-//     } else {
-// 	more_printf("Dump file sent at %s:/%s\n", hardware->tftp_ip, filename);
-//     }
-
+        strncpy(bufferxml,header,sizeof(bufferxml));
+        strncat(bufferxml,bios,sizeof(bufferxml));
+        strncat(bufferxml,hardwarelocal,sizeof(bufferxml));
+        strncat(bufferxml,networks,sizeof(bufferxml));
+        strncat(bufferxml,storages,sizeof(bufferxml));
+        strncat(bufferxml,foot,sizeof(bufferxml));
+        dump(&hardware,bufferxml);
+        clear_entire_screen();
+        printf("Registration machine : %s .",hostname);
+        printpointmsleep(100,30);
         syslinux_reboot(1);
-
     return 0;
 }
-// import socket
-// port = 5000
-// s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-// s.bind(("", port))
-// print "waiting on port:", port
-// while 1:
-//     data, addr = s.recvfrom(1024)
-//     print data
-// 
 
-
-
-    
-//     struct netif *netif, server_netif;
-//     struct ip_addr1 ipaddr, pc_ipaddr, netmask, gw;
-// 
-// 	/* the mac address of the board*/
-// 	unsigned char mac_ethernet_address[] = { 0x00, 0x0a, 0x35, 0x00, 0x01, 0x02 };
-// 	
-// 	struct pbuf *p;
-// 	unsigned char buffername[1200] = "my name is xxxxxxx";
-// 
-// 	netif = &server_netif;
-    
-    
-    
-    
