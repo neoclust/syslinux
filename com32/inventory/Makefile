@@ -12,7 +12,7 @@
 ## -----------------------------------------------------------------------
 
 ##
-## Hardware Detection Tool
+## registerinventory
 ##
 
 VPATH = $(SRC)
@@ -20,7 +20,7 @@ include $(MAKEDIR)/elf.mk
 
 LIBS      = $(objdir)/com32/libupload/libcom32upload.a
 C_LIBS    += $(objdir)/com32/cmenu/libmenu/libmenu.c32
-CFLAGS    += -I$(com32)/cmenu/libmenu -I$(com32)
+CFLAGS    += -I$(com32)/cmenu/libmenu -I$(com32) -I$(topdir)/core/lwip/src/include/ -I$(topdir)/core/lwip/src/include/ipv4
 
 MODULES	  = inventory.c32
 TESTFILES =
@@ -52,15 +52,15 @@ QEMU			?= qemu-kvm
 all: $(MODULES) $(TESTFILES) echo
 
 inventory.elf : $(OBJS) $(LIBS) $(C_LIBS)
-	$(LD) $(LDFLAGS) -o $@ $^
+	$(LD)  $(LDFLAGS) -o $@ $^
 
 echo:
-	@echo "********AAAAAAAAAAAAAAAAAAAAAAAAAA*************" $(OBJS) $(LIBS) $(C_LIBS)
-	@echo "V= ******************************"$(LD) $(LDFLAGS) -o $@ $^
-	@echo "V= ******************************"$(CODENAME)
-	@echo "V= ******************************"$(NODASH_VERSION)
-	@echo "V= ******************************"$(SUM_FILE)
-	
+	@echo "INFORMATION VARIABLE"
+	@echo "******************************"
+	@echo $(OBJS) $(LIBS) $(C_LIBS)
+	@echo "******************************"
+	@echo $(LD) $(LDFLAGS) -o $@ $^
+	@echo "******************************"
 	
 
 tidy dist:
