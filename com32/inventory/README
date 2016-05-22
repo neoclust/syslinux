@@ -1,0 +1,5 @@
+--------------
+Compiling inventory
+--------------
+To build inventory, you just have to do a "make" call in this directory.
+---------------------------
