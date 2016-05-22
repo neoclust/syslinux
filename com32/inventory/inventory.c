@@ -435,18 +435,18 @@ int main(const int argc, const char *argv[])
     for (;;) {
         clear_entire_screen();
         gotoxy(2, 5);
-        printf("Tape exit : return menu");
+        printf("Type exit to return to menu");
         switch(error){
             case 0: break;
             case 1 :
                  gotoxy(6, 3);
-                 printf("hostname labels may contain only 64 ASCII letters.");
+                 printf("Hostname labels may contain only 15 characters (alphanumeric and hyphen).");
                  break;
             case 2 :
                 break;
             case 3 :
                  gotoxy(6, 3);
-                 printf("hostname labels may contain only the ASCII letters 'a' through 'z'");
+                 rintf("Hostname labels may contain only the ASCII letters 'a' through 'z'");
                  gotoxy(7, 3);
                  printf("(in a case-insensitive manner),");
                  gotoxy(8, 3);
@@ -466,7 +466,7 @@ int main(const int argc, const char *argv[])
         clear_entire_screen();
         len = strnlen((const char *)buffer,sizeof(buffer))-1;
         error=0;
-        if (len > 64) {
+        if (len > 15) {
             error = 1;
         }
         else {
