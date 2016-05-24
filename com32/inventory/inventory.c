@@ -575,7 +575,7 @@ int main(const int argc, const char *argv[])
                 "\t\t\t<IPMASK>%s</IPMASK>\n"
                 "\t\t\t<IPGATEWAY>%s</IPGATEWAY>\n"
                 "\t\t\t<IPSUBNET>%s</IPSUBNET>\n"
-                "\t\t\tSTATUS>Up</STATUS>\n"
+                "\t\t\t<STATUS>Up</STATUS>\n"
                 "\t\t\t<TYPE>Ethernet</TYPE>\n"
                 "\t\t\t<VIRTUALDEV>0</VIRTUALDEV>\n"
             "\t\t</NETWORKS>\n",
