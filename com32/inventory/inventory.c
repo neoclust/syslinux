@@ -21,7 +21,7 @@
  *   HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
  *   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  *   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
- *   OTHER DEALINGS IN THE SOFTWARE. 
+ *   OTHER DEALINGS IN THE SOFTWARE.
  * -----------------------------------------------------------------------
 */
 
@@ -125,14 +125,14 @@ int detect_pxelocal(struct s_pxe *pxe)
     }
 return 0;
 }
-	
+
 void printpointmsleep(int millisecond, int nbpoint){
     for (int t=0;t <= nbpoint; t++){
         msleep(millisecond);
         printf(".");
     }
-}	
-	
+}
+
 char display_line;
 
 /* Try to detect disks from port 0x80 to 0xff */
@@ -208,7 +208,7 @@ char *remove_spaceslocal(char *p)
 // 	p--;
 //     }
 //     p = save;
-// 
+//
 //     return p;
 // }
 void disks_summarylocal(struct driveinfo *disk_info)
@@ -275,8 +275,8 @@ int main(const int argc, const char *argv[])
     size_t len =0;
     struct driveinfo disk_info[256];	/* Disk Information */
     int nbdisk=0;
-    
-    
+
+
      char version_string[256];
     //uint32_t mbr_ids[256];	/* MBR ids */
      snprintf(version_string, sizeof version_string, "%s %s (%s)",
@@ -286,7 +286,7 @@ int main(const int argc, const char *argv[])
     detect_syslinux(&hardware);
     detect_parameters(argc, argv, &hardware);
     detect_hardware(&hardware);
-    
+
     detect_diskslocal(disk_info, &nbdisk);
     disks_summarylocal(disk_info);
     //recuperation ip et macadress
@@ -308,12 +308,12 @@ int main(const int argc, const char *argv[])
     sdi = syslinux_derivative_info();
     detect_pxelocal(&pxe);
     timeval(&tm);
-  
- 
-    
 
-   
-   
+
+
+
+
+
     snprintf(date, sizeof(date),
 		 "%04d-%02d-%02d-%02d-%02d-%02d",
                                     (uint32_t) tm.year,
@@ -359,10 +359,10 @@ int main(const int argc, const char *argv[])
 		 ((uint8_t *) & sdi->pxe.ipinfo->gateway)[1],
 		 ((uint8_t *) & sdi->pxe.ipinfo->gateway)[2],
 		 ((uint8_t *) & sdi->pxe.ipinfo->gateway)[3]);
-    
-    
-    
-    
+
+
+
+
     printf("gateway %s\n",gateway );
     snprintf(netmask, sizeof(netmask),
 		 "%u.%u.%u.%u",
@@ -379,15 +379,15 @@ int main(const int argc, const char *argv[])
 		 ((uint8_t *) & sdi->pxe.ipinfo->myip)[2],
 		 ((uint8_t *) & sdi->pxe.ipinfo->myip)[3]);
     printf("myip %s\n",myip );
-    
+
     IP4_ADDR1(myipint,
                 ((uint8_t *) & sdi->pxe.ipinfo->myip)[0],
 		 ((uint8_t *) & sdi->pxe.ipinfo->myip)[1],
 		 ((uint8_t *) & sdi->pxe.ipinfo->myip)[2],
 		 ((uint8_t *) & sdi->pxe.ipinfo->myip)[3]);
- 
-                
-    
+
+
+
     IP4_ADDR1(gwip,
                  ((uint8_t *) & sdi->pxe.ipinfo->gateway)[0]&((uint8_t *) & sdi->pxe.ipinfo->netmask)[0],
 		 ((uint8_t *) & sdi->pxe.ipinfo->gateway)[1]&((uint8_t *) & sdi->pxe.ipinfo->netmask)[1],
@@ -395,9 +395,9 @@ int main(const int argc, const char *argv[])
 		 ((uint8_t *) & sdi->pxe.ipinfo->gateway)[3]&((uint8_t *) & sdi->pxe.ipinfo->netmask)[3]);
 
 
-    
 
-    
+
+
     snprintf(subnet, sizeof(subnet),
 		 "%u.%u.%u.%u",
 		 ((uint8_t *) & sdi->pxe.ipinfo->myip)[0] & ((uint8_t *) & sdi->pxe.ipinfo->netmask)[0],
@@ -513,7 +513,7 @@ int main(const int argc, const char *argv[])
     char networks[1024];
     char storages[1024];
     bufferxml[0]=header[0]=bios[0]=hardwarelocal[0]=networks[0]=storages[0]=0;
-    snprintf (header, 
+    snprintf (header,
             sizeof(header),
             "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<REQUEST>\n"
     "\t<DEVICEID>%s</DEVICEID>\n"
@@ -524,7 +524,7 @@ int main(const int argc, const char *argv[])
         "\t\t\t<LOGDATE>%s</LOGDATE>\n"
         "\t\t\t<USERID>N/A</USERID>\n"
         "\t\t</ACCESSLOG>\n",deviceid,logdate);
-        snprintf (bios, 
+        snprintf (bios,
             sizeof(bios),
                 "\t\t<BIOS>\n"
                     "\t\t\t<ASSETTAG/>\n"
@@ -548,7 +548,7 @@ int main(const int argc, const char *argv[])
                                     dmi.system.serial);
 
 
-    snprintf (hardwarelocal, 
+    snprintf (hardwarelocal,
            sizeof(hardwarelocal),
            "\t\t<HARDWARE>\n"
                 "\t\t\t<IPADDR>%s</IPADDR>\n"
@@ -566,7 +566,7 @@ int main(const int argc, const char *argv[])
                                 dmi.system.uuid,
                                 dmi.chassis.manufacturer);
 
- snprintf (networks, 
+ snprintf (networks,
            sizeof(networks),
             "\t\t<NETWORKS>\n"
                 "\t\t\t<DESCRIPTION>eth0</DESCRIPTION>\n"
@@ -575,7 +575,7 @@ int main(const int argc, const char *argv[])
                 "\t\t\t<IPMASK>%s</IPMASK>\n"
                 "\t\t\t<IPGATEWAY>%s</IPGATEWAY>\n"
                 "\t\t\t<IPSUBNET>%s</IPSUBNET>\n"
-                "\t\t\tSTATUS>Up</STATUS>\n"
+                "\t\t\t<STATUS>Up</STATUS>\n"
                 "\t\t\t<TYPE>Ethernet</TYPE>\n"
                 "\t\t\t<VIRTUALDEV>0</VIRTUALDEV>\n"
             "\t\t</NETWORKS>\n",
@@ -587,7 +587,7 @@ int main(const int argc, const char *argv[])
 char disk_size[11];
 disks_size_first_disk(disk_info,disk_size);
 if (disk_size[0] != 0){
-    snprintf (storages, 
+    snprintf (storages,
            sizeof(storages),
            "\t\t<STORAGES>\n"
                 "\t\t\t<NAME>hd0</NAME>\n"
@@ -612,4 +612,3 @@ char foot[]="\t</CONTENT>\n"
         syslinux_reboot(1);
     return 0;
 }
-
