@@ -446,7 +446,7 @@ int main(const int argc, const char *argv[])
                 break;
             case 3 :
                  gotoxy(6, 3);
-                 rintf("Hostname labels may contain only the ASCII letters 'a' through 'z'");
+                 printf("Hostname labels may contain only the ASCII letters 'a' through 'z'");
                  gotoxy(7, 3);
                  printf("(in a case-insensitive manner),");
                  gotoxy(8, 3);
