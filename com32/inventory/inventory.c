@@ -287,8 +287,8 @@ int main(const int argc, const char *argv[])
     detect_parameters(argc, argv, &hardware);
     detect_hardware(&hardware);
 
-    detect_diskslocal(disk_info, &nbdisk);
-    disks_summarylocal(disk_info);
+//     detect_diskslocal(disk_info, &nbdisk);
+//     disks_summarylocal(disk_info);
     //recuperation ip et macadress
     const union syslinux_derivative_info *sdi;
     char tftp_ip[50], gateway[50], netmask[50], myip[50], ipver[50], subnet[50];
@@ -332,7 +332,7 @@ int main(const int argc, const char *argv[])
                                     (uint32_t) tm.minut,
                                     (uint32_t) tm.second);
     printf("logdate %s\n",logdate );
-    //dede $4$NnTZsbX1$NdFRpeMLJPR/VdMLXaWUaxoD+MU$
+    
     // read reseau from pxe
     snprintf(tftp_ip, sizeof(tftp_ip),
 		 "%u.%u.%u.%u",
@@ -433,6 +433,8 @@ int main(const int argc, const char *argv[])
              pxe.ip_addr[3]);
     strncpy(mac_addr, pxe.mac_addr,sizeof(mac_addr));
     for (;;) {
+        hostname[0]=0;
+        buffer[0]=0;
         clear_entire_screen();
         gotoxy(2, 5);
         printf("Type exit to return to menu");
@@ -458,7 +460,8 @@ int main(const int argc, const char *argv[])
         gotoxy(21, 3);
 	csprint("Hostname:", 0x07);
         fgets((char*) buffer, sizeof buffer, stdin);
-        strncpy(hostname,buffer,strlen(buffer)-1);
+        strncpy(hostname,buffer,sizeof hostname);
+        hostname[strlen(hostname)-1]=0;
         if (!strncmp(buffer,"exit", 4)){
             syslinux_reboot(1);
             }
@@ -489,11 +492,6 @@ int main(const int argc, const char *argv[])
                     }
                 }
         }
-        /*
-	editstring(name, 50);
-	gotoxy(21, 1);
-        printf("%s",name);*/
-
         if (error == 0){
 
             break;
@@ -502,7 +500,8 @@ int main(const int argc, const char *argv[])
 
 
     char deviceid[86];
-    strncpy(deviceid,buffer,len);
+    deviceid[0]=0;
+    strncpy(deviceid,hostname,sizeof(deviceid));
     strncat(deviceid,"-",sizeof(deviceid));
     strncat(deviceid,date,sizeof(deviceid));
 
@@ -584,17 +583,26 @@ int main(const int argc, const char *argv[])
                             netmask,
                             gateway,
                             subnet);
-char disk_size[11];
-disks_size_first_disk(disk_info,disk_size);
-if (disk_size[0] != 0){
-    snprintf (storages,
+// char disk_size[11];
+// disks_size_first_disk(disk_info,disk_size);
+// if (disk_size[0] != 0){
+//     snprintf (storages,
+//            sizeof(storages),
+//            "\t\t<STORAGES>\n"
+//                 "\t\t\t<NAME>hd0</NAME>\n"
+//                 "\t\t\t<TYPE>disk</TYPE>\n"
+//                 "\t\t\t<DISKSIZE>%s</DISKSIZE>\n"
+//            "\t\t</STORAGES>\n",disk_size);
+// }
+
+    snprintf (storages, 
            sizeof(storages),
            "\t\t<STORAGES>\n"
-                "\t\t\t<NAME>hd0</NAME>\n"
-                "\t\t\t<TYPE>disk</TYPE>\n"
-                "\t\t\t<DISKSIZE>%s</DISKSIZE>\n"
-           "\t\t</STORAGES>\n",disk_size);
-}
+                "\t\t\t<NAME></NAME>\n"
+                "\t\t\t<TYPE></TYPE>\n"
+                "\t\t\t<DISKSIZE></DISKSIZE>\n"
+           "\t\t</STORAGES>\n");
+
 char foot[]="\t</CONTENT>\n"
 "</REQUEST>";
         char dataedit[100];
