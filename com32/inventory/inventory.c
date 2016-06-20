@@ -287,8 +287,7 @@ int main(const int argc, const char *argv[])
     detect_parameters(argc, argv, &hardware);
     detect_hardware(&hardware);
 
-//     detect_diskslocal(disk_info, &nbdisk);
-//     disks_summarylocal(disk_info);
+
     //recuperation ip et macadress
     const union syslinux_derivative_info *sdi;
     char tftp_ip[50], gateway[50], netmask[50], myip[50], ipver[50], subnet[50];
@@ -583,17 +582,6 @@ int main(const int argc, const char *argv[])
                             netmask,
                             gateway,
                             subnet);
-// char disk_size[11];
-// disks_size_first_disk(disk_info,disk_size);
-// if (disk_size[0] != 0){
-//     snprintf (storages,
-//            sizeof(storages),
-//            "\t\t<STORAGES>\n"
-//                 "\t\t\t<NAME>hd0</NAME>\n"
-//                 "\t\t\t<TYPE>disk</TYPE>\n"
-//                 "\t\t\t<DISKSIZE>%s</DISKSIZE>\n"
-//            "\t\t</STORAGES>\n",disk_size);
-// }
 
     snprintf (storages, 
            sizeof(storages),
