@@ -135,51 +135,6 @@ void printpointmsleep(int millisecond, int nbpoint){
 
 char display_line;
 
-/* Try to detect disks from port 0x80 to 0xff */
-void detect_diskslocal(struct driveinfo *disk_info, int *nbdisk)
-{
-    int i = -1;
-    int err;
-    for (int drive = 0x80; drive < 0xff; drive++) {
-	i++;
-	disk_info[i].disk = drive;
-	err = get_drive_parameters(&disk_info[i]);
-
-	/*
-	 * Do not print output when drive does not exist or
-	 * doesn't support int13 (cdrom, ...)
-	 */
-	if (err == -1 || !disk_info[i].cbios)
-	    continue;
-	(*nbdisk)++;
-    }
-}
-void sectors_to_sizelocal(int sectors, char *buffer)
-{
-    int b = (sectors / 2);
-    int mib = b >> 10;
-    int gib = mib >> 10;
-    int tib = gib >> 10;
-
-    if (tib > 0)
-	sprintf(buffer, "%3d.%02d TiB", tib,sub(gib));
-    else if (gib > 0)
-	sprintf(buffer, "%3d.%02d GiB", gib,sub(mib));
-    else if (mib > 0)
-	sprintf(buffer, "%3d.%02d MiB", mib,sub(b));
-    else
-	sprintf(buffer, "%d B", b);
-}
-
-/* remove begining spaces */
-/*char *skip_spaceslocal(char *p)
-{
-    while (*p && *p <= ' ') {
-	p++;
-    }
-
-    return p;
-}*/
 
 /* remove trailing & begining spaces */
 char *remove_spaceslocal(char *p)
@@ -198,85 +153,21 @@ char *remove_spaceslocal(char *p)
     return p;
 }
 
-/* remove trailing LF */
-// char *remove_trailing_lflocal(char *p)
-// {
-//     char *save = p;
-//     p += strlen(p) - 1;
-//     while (*p && *p == 10) {
-// 	*p = '\0';
-// 	p--;
-//     }
-//     p = save;
-//
-//     return p;
-// }
-void disks_summarylocal(struct driveinfo *disk_info)
-{
-    int i = -1;
-    bool found = false;
-    for (int drive = 0x80; drive < 0xff; drive++) {
-	i++;
-	if (!disk_info[i].cbios)
-	    continue;		/* Invalid geometry */
-
-	found = true;
-	struct driveinfo *d = &disk_info[i];
-	char disk_size[11];
-
-	if ((int)d->edd_params.sectors > 0)
-	    sectors_to_sizelocal((int)d->edd_params.sectors, disk_size);
-	else
-	    memset(disk_size, 0, sizeof disk_size);
-
-	moreprintf("DISK 0x%X:\n", d->disk);
-	moreprintf("  C/H/S: %d cylinders, %d heads, %d sectors/track\n",
-		    d->legacy_max_cylinder + 1, d->legacy_max_head + 1,
-		    d->legacy_sectors_per_track);
-	moreprintf("  EDD:   Version: %X, size: %s\n", d->edd_version,
-		    disk_size);
-
-	/* Do not print Host Bus & Interface if EDD isn't 3.0 or more */
-	if (d->edd_version >= 0x30)
-	    moreprintf("         Host bus: %s, Interface type: %s\n\n",
-			remove_spaceslocal((char *)d->edd_params.host_bus_type),
-			remove_spaceslocal((char *)d->edd_params.interface_type));
-    }
-
-    if (found == false)
-	moreprintf("No disk found\n");
-}
-
-void disks_size_first_disk(struct driveinfo *disk_info, char *disk_size)
-{
-    int i = -1;
-    i++;
-    if (!disk_info[i].cbios) {
-        memset(disk_size, 0, sizeof disk_size);
-        return;
-    }
-
-
-    struct driveinfo *d = &disk_info[i];
-    //char disk_size[11];
-
-    if ((int)d->edd_params.sectors > 0)
-        sectors_to_sizelocal((int)d->edd_params.sectors, disk_size);
-    else
-        memset(disk_size, 0, sizeof disk_size);
-}
-
 int main(const int argc, const char *argv[])
 {
-    char buffer[1024];
-    char hostname[90];
+    char buffer[1024]={0};
+    char hostname[90]={0};
     s_dmi dmi;
     struct timeval tm;
     size_t len =0;
-    struct driveinfo disk_info[256];	/* Disk Information */
-    int nbdisk=0;
-
-
+    //struct driveinfo disk_info[256];	/* Disk Information */
+    char gpxe[4]={0};
+    char myip[16]={0};
+    char mac_addr[18]={0};
+    char date[20]={0};
+    char logdate[20]={0};
+    char manufacturer[20]={0};
+    int error = 0;
      char version_string[256];
     //uint32_t mbr_ids[256];	/* MBR ids */
      snprintf(version_string, sizeof version_string, "%s %s (%s)",
@@ -287,32 +178,32 @@ int main(const int argc, const char *argv[])
     detect_parameters(argc, argv, &hardware);
     detect_hardware(&hardware);
 
-
-    //recuperation ip et macadress
-    const union syslinux_derivative_info *sdi;
-    char tftp_ip[50], gateway[50], netmask[50], myip[50], ipver[50], subnet[50];
-    struct s_pxe pxe;
-    char ip_addr1[16];
-    char mac_addr[18];
-    char date[20];
-    char logdate[20];
-    uint32_t myipint;
-    uint32_t toip;
-    uint32_t gwip;
-    uint16_t  toport = 5005;
-    uint16_t  fromport = 5006;
-
-    hostname[0]=0;
-    int error = 0;
-    sdi = syslinux_derivative_info();
-    detect_pxelocal(&pxe);
+    if (strlen(hardware.gateway) == 0 || strlen(hardware.tftp_ip) == 0 ||
+        strlen(hardware.subnet) == 0 || strlen(hardware.mask) == 0 ||
+        strlen(hardware.dump_path)== 0 )
+    {
+     printf("missing parameters \nPlease change parameters in file menu\n"\
+     "\nParameters : subnet, gateway, mask, tftp_ip and dump_path are required\n"\
+     "example : \n"\
+     "COM32 inventory.c32\n"\
+     "APPEND dump_path=inventories gateway=8.8.8.8 subnet=192.168.1.0 mask=255.255.255.0 tftp_ip=192.168.1.19");
+     printf("\nType <Return> to continue\n");
+     fgets((char*) buffer, sizeof buffer, stdin);
+     syslinux_reboot(1);
+    }
+    printf("PARAMTERS:\n");
+    printf("\tgateway %s  \n",hardware.gateway);
+    printf("\ttftp_ip %s  \n",hardware.tftp_ip);
+    printf("\tsubnet %s  \n",hardware.subnet);
+    printf("\tmask %s  \n",hardware.mask);
+    if (hardware.debug){
+        printf("\tmode debug");
+    }
+    if (hardware.xml){
+        printf("\t display xml");
+    }
+    printf("\n\t-----------------------------------\n");
     timeval(&tm);
-
-
-
-
-
-
     snprintf(date, sizeof(date),
 		 "%04d-%02d-%02d-%02d-%02d-%02d",
                                     (uint32_t) tm.year,
@@ -331,86 +222,28 @@ int main(const int argc, const char *argv[])
                                     (uint32_t) tm.minut,
                                     (uint32_t) tm.second);
     printf("logdate %s\n",logdate );
-    
-    // read reseau from pxe
-    snprintf(tftp_ip, sizeof(tftp_ip),
-		 "%u.%u.%u.%u",
-		 ((uint8_t *) & sdi->pxe.ipinfo->serverip)[0],
-		 ((uint8_t *) & sdi->pxe.ipinfo->serverip)[1],
-		 ((uint8_t *) & sdi->pxe.ipinfo->serverip)[2],
-		 ((uint8_t *) & sdi->pxe.ipinfo->serverip)[3]);
-    printf("tftp_ip %s\n",tftp_ip );
+    struct s_pxe *p = &hardware.pxe;
 
-    uint8_t ip[4];
-    ip[0]=((uint8_t *) & sdi->pxe.ipinfo->serverip)[0];
-    ip[1]=((uint8_t *) & sdi->pxe.ipinfo->serverip)[1];
-    ip[2]=((uint8_t *) & sdi->pxe.ipinfo->serverip)[3];
-    ip[3]=((uint8_t *) & sdi->pxe.ipinfo->serverip)[4];
-    IP4_ADDR1(toip,
-                ((uint8_t *) & sdi->pxe.ipinfo->serverip)[0],
-		 ((uint8_t *) & sdi->pxe.ipinfo->serverip)[1],
-		 ((uint8_t *) & sdi->pxe.ipinfo->serverip)[2],
-		 ((uint8_t *) & sdi->pxe.ipinfo->serverip)[3]);
+    if ((hardware.pci_ids_return_code == -ENOPCIIDS)
+	|| (p->pci_device == NULL)) {
+    } else {
+	snprintf(manufacturer, sizeof buffer, "%s",
+		 p->pci_device->dev_info->vendor_name);
+	printf("%s  \n", manufacturer);
+	snprintf(buffer, sizeof buffer, "Product      : %s",
+		 p->pci_device->dev_info->product_name);
+	printf("%s  \n",buffer);
 
-    snprintf(gateway, sizeof(gateway),
-		 "%u.%u.%u.%u",
-		 ((uint8_t *) & sdi->pxe.ipinfo->gateway)[0],
-		 ((uint8_t *) & sdi->pxe.ipinfo->gateway)[1],
-		 ((uint8_t *) & sdi->pxe.ipinfo->gateway)[2],
-		 ((uint8_t *) & sdi->pxe.ipinfo->gateway)[3]);
+    }
+    snprintf(mac_addr, sizeof mac_addr, "%s", p->mac_addr);
+    printf("Mac address %s  \n",mac_addr);
+    snprintf(myip, sizeof myip, "%d.%d.%d.%d",p->ip_addr[0], p->ip_addr[1], p->ip_addr[2], p->ip_addr[3]);
+    printf("IP address : %s  \n",myip);
+    if (is_gpxe()) snprintf(gpxe,sizeof(gpxe),"%s","Yes");
+    else snprintf (gpxe, sizeof(gpxe), "%s", "No");
+    snprintf(buffer, sizeof buffer, "gPXE Detected: %s", gpxe);
+    printf("%s  \n",buffer);
 
-
-
-
-    printf("gateway %s\n",gateway );
-    snprintf(netmask, sizeof(netmask),
-		 "%u.%u.%u.%u",
-		 ((uint8_t *) & sdi->pxe.ipinfo->netmask)[0],
-		 ((uint8_t *) & sdi->pxe.ipinfo->netmask)[1],
-		 ((uint8_t *) & sdi->pxe.ipinfo->netmask)[2],
-		 ((uint8_t *) & sdi->pxe.ipinfo->netmask)[3]);
-    printf("netmask %s\n",netmask );
-
-    snprintf(myip, sizeof(myip),
-		 "%u.%u.%u.%u",
-		 ((uint8_t *) & sdi->pxe.ipinfo->myip)[0],
-		 ((uint8_t *) & sdi->pxe.ipinfo->myip)[1],
-		 ((uint8_t *) & sdi->pxe.ipinfo->myip)[2],
-		 ((uint8_t *) & sdi->pxe.ipinfo->myip)[3]);
-    printf("myip %s\n",myip );
-
-    IP4_ADDR1(myipint,
-                ((uint8_t *) & sdi->pxe.ipinfo->myip)[0],
-		 ((uint8_t *) & sdi->pxe.ipinfo->myip)[1],
-		 ((uint8_t *) & sdi->pxe.ipinfo->myip)[2],
-		 ((uint8_t *) & sdi->pxe.ipinfo->myip)[3]);
-
-
-
-    IP4_ADDR1(gwip,
-                 ((uint8_t *) & sdi->pxe.ipinfo->gateway)[0]&((uint8_t *) & sdi->pxe.ipinfo->netmask)[0],
-		 ((uint8_t *) & sdi->pxe.ipinfo->gateway)[1]&((uint8_t *) & sdi->pxe.ipinfo->netmask)[1],
-		 ((uint8_t *) & sdi->pxe.ipinfo->gateway)[2]&((uint8_t *) & sdi->pxe.ipinfo->netmask)[2],
-		 ((uint8_t *) & sdi->pxe.ipinfo->gateway)[3]&((uint8_t *) & sdi->pxe.ipinfo->netmask)[3]);
-
-
-
-
-
-    snprintf(subnet, sizeof(subnet),
-		 "%u.%u.%u.%u",
-		 ((uint8_t *) & sdi->pxe.ipinfo->myip)[0] & ((uint8_t *) & sdi->pxe.ipinfo->netmask)[0],
-		 ((uint8_t *) & sdi->pxe.ipinfo->myip)[1] & ((uint8_t *) & sdi->pxe.ipinfo->netmask)[1],
-		 ((uint8_t *) & sdi->pxe.ipinfo->myip)[2] & ((uint8_t *) & sdi->pxe.ipinfo->netmask)[2],
-		 ((uint8_t *) & sdi->pxe.ipinfo->myip)[3] & ((uint8_t *) & sdi->pxe.ipinfo->netmask)[3]);
-
-    snprintf(ipver, sizeof(ipver),
-		 "%u.%u.%u.%u",
-		 ((uint8_t *) & sdi->pxe.ipinfo->ipver)[0],
-		 ((uint8_t *) & sdi->pxe.ipinfo->ipver)[1],
-		 ((uint8_t *) & sdi->pxe.ipinfo->ipver)[2],
-		 ((uint8_t *) & sdi->pxe.ipinfo->ipver)[3]);
-    printf("ipver %s\n",ipver );
 
     if (dmi_iterate(&dmi) == -ENODMITABLE) {
 	printf("No DMI Structure found\n");
@@ -421,22 +254,20 @@ int main(const int argc, const char *argv[])
 	printf("%d structures occupying %d bytes.\n", dmi.dmitable.num,
 	       dmi.dmitable.len);
 	printf("DMI table at 0x%08X.\n", dmi.dmitable.base);
+        parse_dmitable(&dmi);
+        printf("number %s  ",dmi.system.sku_number);
+        printf("release date %s\n",dmi.bios.release_date);
+        printf("vendor  %s  ",dmi.bios.vendor);
+        printf("version  %s",dmi.bios.version);
+        printf("manufacturer sys  %s\n",dmi.system.manufacturer);
+        printf("product name %s  uuid sys %s \n",dmi.system.product_name,dmi.system.uuid);
+        printf("serial name %s chassis %s",dmi.system.serial,dmi.chassis.manufacturer);
     }
-    parse_dmitable(&dmi);
-
-    snprintf(ip_addr1, sizeof(ip_addr1),
-             "%d.%d.%d.%d",
-             pxe.ip_addr[0],
-             pxe.ip_addr[1],
-             pxe.ip_addr[2],
-             pxe.ip_addr[3]);
-    strncpy(mac_addr, pxe.mac_addr,sizeof(mac_addr));
     for (;;) {
         hostname[0]=0;
         buffer[0]=0;
-        clear_entire_screen();
-        gotoxy(2, 5);
-        printf("Type exit to return to menu");
+        if (hardware.debug==false)
+            clear_entire_screen();
         switch(error){
             case 0: break;
             case 1 :
@@ -457,6 +288,8 @@ int main(const int argc, const char *argv[])
                 break;
         };
         gotoxy(21, 3);
+        printf("Type exit to return to menu");
+        gotoxy(22, 3);
 	csprint("Hostname:", 0x07);
         fgets((char*) buffer, sizeof buffer, stdin);
         strncpy(hostname,buffer,sizeof hostname);
@@ -526,7 +359,7 @@ int main(const int argc, const char *argv[])
             sizeof(bios),
                 "\t\t<BIOS>\n"
                     "\t\t\t<ASSETTAG/>\n"
-                    "\t\t\t<MMANUFACTURER/>\n"
+                    "\t\t\t<MMANUFACTURER>%s</MMANUFACTURER>\n"
                     "\t\t\t<MMODEL/>\n"
                     "\t\t\t<MSN/>\n"
                     "\t\t\t<SKUNUMBER>%s</SKUNUMBER>\n"
@@ -536,7 +369,7 @@ int main(const int argc, const char *argv[])
                     "\t\t\t<SMANUFACTURER>%s</SMANUFACTURER>\n"
                     "\t\t\t<SMODEL>%s</SMODEL>\n"
                     "\t\t\t<SSN>%s</SSN>\n"
-                "\t\t</BIOS>\n",
+                "\t\t</BIOS>\n",    manufacturer,
                                     dmi.system.sku_number,
                                     dmi.bios.release_date,
                                     dmi.bios.vendor,
@@ -558,11 +391,11 @@ int main(const int argc, const char *argv[])
                 "\t\t\t<PROCESSORS>0</PROCESSORS>\n"
                 "\t\t\t<PROCESSORN>0</PROCESSORN>\n"
                 "\t\t\t<PROCESSORT>Unknown processor</PROCESSORT>\n"
-            "\t\t</HARDWARE>\n",ip_addr1,
-                                gateway,
-                                hostname,
-                                dmi.system.uuid,
-                                dmi.chassis.manufacturer);
+            "\t\t</HARDWARE>\n", myip,
+                                 hardware.gateway,
+                                 hostname,
+                                 dmi.system.uuid,
+                                 dmi.chassis.manufacturer);
 
  snprintf (networks,
            sizeof(networks),
@@ -579,32 +412,48 @@ int main(const int argc, const char *argv[])
             "\t\t</NETWORKS>\n",
                             myip,
                             mac_addr,
-                            netmask,
-                            gateway,
-                            subnet);
+                            hardware.mask,
+                            hardware.gateway,
+                            hardware.subnet
+                            );
 
-    snprintf (storages, 
-           sizeof(storages),
-           "\t\t<STORAGES>\n"
-                "\t\t\t<NAME></NAME>\n"
-                "\t\t\t<TYPE></TYPE>\n"
-                "\t\t\t<DISKSIZE></DISKSIZE>\n"
-           "\t\t</STORAGES>\n");
+//     snprintf (storages, 
+//            sizeof(storages),
+//            "\t\t<STORAGES>\n"
+//                 "\t\t\t<NAME></NAME>\n"
+//                 "\t\t\t<TYPE></TYPE>\n"
+//                 "\t\t\t<DISKSIZE></DISKSIZE>\n"
+//            "\t\t</STORAGES>\n");
 
 char foot[]="\t</CONTENT>\n"
 "</REQUEST>";
-        char dataedit[100];
         clear_entire_screen();
+        gotoxy(1, 1);
         strncpy(bufferxml,header,sizeof(bufferxml));
         strncat(bufferxml,bios,sizeof(bufferxml));
         strncat(bufferxml,hardwarelocal,sizeof(bufferxml));
         strncat(bufferxml,networks,sizeof(bufferxml));
-        strncat(bufferxml,storages,sizeof(bufferxml));
+        //strncat(bufferxml,storages,sizeof(bufferxml));
         strncat(bufferxml,foot,sizeof(bufferxml));
+        
+        if(hardware.xml){
+            printf("%s\n",bufferxml);
+            printf("Type <return> to continue");
+            fgets((char*) buffer, sizeof buffer, stdin);
+        }
         dump(&hardware,bufferxml);
         clear_entire_screen();
-        printf("Registration machine : %s .",hostname);
-        printpointmsleep(100,30);
+        gotoxy(1, 1);
+        printf("\nRegistration machine : %s (Y/N)", hostname);
+         fgets((char*) buffer, sizeof buffer, stdin);
+        if (buffer[0] == 'y' || buffer[0] == 'Y'){
+// 
+//         }
+            printpointmsleep(100,30);
+            syslinux_reboot(1);
+        }
+        printf("\nRegistration cancel : return to quit\n");
+        fgets((char*) buffer, sizeof buffer, stdin);
         syslinux_reboot(1);
     return 0;
 }

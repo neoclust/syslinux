@@ -62,7 +62,8 @@ void detect_parameters(const int argc, const char *argv[],
 {
     /* Quiet mode - make the output more quiet */
     quiet = true;
-
+    hardware->debug = false;
+    hardware->xml = false;
     /* Silent mode - make not output at all */
     silent = false;
 
@@ -117,6 +118,19 @@ void detect_parameters(const int argc, const char *argv[],
 	} else if (!strncmp(argv[i], "dump_path=", 10)) {
 	    strlcpy(hardware->dump_path, argv[i] + 10,
 		    sizeof(hardware->dump_path));
+        } else if (!strncmp(argv[i], "gateway=", 8)) {
+	    strlcpy(hardware->gateway, argv[i] + 8,
+		    sizeof(hardware->gateway));
+         } else if (!strncmp(argv[i], "mask=", 5)) {
+	    strlcpy(hardware->mask, argv[i] + 5,
+		    sizeof(hardware->mask));
+        } else if (!strncmp(argv[i], "subnet=", 7)) {
+	    strlcpy(hardware->subnet, argv[i] + 7,
+		    sizeof(hardware->subnet));
+        } else if (!strncmp(argv[i], "debug=", 5)) {
+            hardware->debug = true;
+        } else if (!strncmp(argv[i], "xml", 3)) {
+	    hardware->xml = true;
 	} else if (!strncmp(argv[i], "tftp_ip=", 8)) {
 	    strlcpy(hardware->tftp_ip, argv[i] + 8,
 		    sizeof(hardware->tftp_ip));
@@ -745,38 +759,35 @@ void init_console(struct s_hardware *hardware)
 
 void detect_hardware(struct s_hardware *hardware)
 {
-    if (!quiet)
-        more_printf("ACPI: Detecting\n");
-    detect_acpi(hardware);
+//     if (!quiet)
+//         more_printf("ACPI: Detecting\n");
+//     detect_acpi(hardware);
 
-    if (!quiet)
-        more_printf("MEMORY: Detecting\n");
-    detect_memory(hardware);
+//     if (!quiet)
+//         more_printf("MEMORY: Detecting\n");
+//     detect_memory(hardware);
 
-    if (!quiet)
-        more_printf("DMI: Detecting Table\n");
-    if (detect_dmi(hardware) == -ENODMITABLE) {
-        more_printf("DMI: ERROR ! Table not found ! \n");
-        more_printf("DMI: Many hardware components will not be detected ! \n");
-    } else {
-        if (!quiet)
-            more_printf("DMI: Table found ! (version %u.%u)\n",
-                        hardware->dmi.dmitable.major_version,
-                        hardware->dmi.dmitable.minor_version);
-    }
+//     if (!quiet)
+//         more_printf("DMI: Detecting Table\n");
+   // detect_dmi(hardware);
+//         if (!quiet)
+//             more_printf("DMI: Table found ! (version %u.%u)\n",
+//                         hardware->dmi.dmitable.major_version,
+//                         hardware->dmi.dmitable.minor_version);
+//     }
 
-    if (!quiet)
-        more_printf("CPU: Detecting\n");
-    cpu_detect(hardware);
+//     if (!quiet)
+//         more_printf("CPU: Detecting\n");
+//     cpu_detect(hardware);
 
-    if (!quiet)
-        more_printf("DISKS: Detecting\n");
-    detect_disks(hardware);
+//     if (!quiet)
+//         more_printf("DISKS: Detecting\n");
+//     detect_disks(hardware);
 
-    if (!quiet)
-        more_printf("VPD: Detecting\n");
-    detect_vpd(hardware);
-
+//     if (!quiet)
+//         more_printf("VPD: Detecting\n");
+//     detect_vpd(hardware);
+// 
     detect_pci(hardware);
     if (!quiet)
         more_printf("PCI: %d Devices Found\n", hardware->nb_pci_devices);
@@ -785,8 +796,8 @@ void detect_hardware(struct s_hardware *hardware)
         more_printf("PXE: Detecting\n");
     detect_pxe(hardware);
 
-    if (!quiet)
-        more_printf("VESA: Detecting\n");
-    detect_vesa(hardware);
+//     if (!quiet)
+//         more_printf("VESA: Detecting\n");
+//     detect_vesa(hardware);
 }
 
