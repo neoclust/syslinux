@@ -74,21 +74,21 @@ struct timeval{
 // };
 // #if BYTE_ORDER == BIG_ENDIAN
 // /** Set an IP address given by the four byte-parts */
-// #define IP4_ADDR(ipaddr, a,b,c,d) \
-//         (ipaddr)->addr = ((uint32_t)((a) & 0xff) << 24) | \
-//                          ((uint32_t)((b) & 0xff) << 16) | \
-//                          ((uint32_t)((c) & 0xff) << 8)  | \
-//                           (uint32_t)((d) & 0xff)
-// #else
-// /** Set an IP address given by the four byte-parts.
-//     Little-endian version that prevents the use of htonl. */
-// #define IP4_ADDR(ipaddr, a,b,c,d) \
-//         (ipaddr)->addr = ((uint32_t)((d) & 0xff) << 24) | \
-//                          ((uint32_t)((c) & 0xff) << 16) | \
-//                          ((uint32_t)((b) & 0xff) << 8)  | \
-//                           (uint32_t)((a) & 0xff)
-// #endif
-//                           
+/* #define IP4_ADDR(ipaddr, a,b,c,d) \
+        (ipaddr)->addr = ((uint32_t)((a) & 0xff) << 24) | \
+                         ((uint32_t)((b) & 0xff) << 16) | \
+                         ((uint32_t)((c) & 0xff) << 8)  | \
+                          (uint32_t)((d) & 0xff)
+#else */
+/** Set an IP address given by the four byte-parts.
+    Little-endian version that prevents the use of htonl. */
+/* #define IP4_ADDR(ipaddr, a,b,c,d) \
+        (ipaddr)->addr = ((uint32_t)((d) & 0xff) << 24) | \
+                         ((uint32_t)((c) & 0xff) << 16) | \
+                         ((uint32_t)((b) & 0xff) << 8)  | \
+                          (uint32_t)((a) & 0xff)
+#endif
+*/                           
 #if BYTE_ORDER == BIG_ENDIAN
 /** Set an IP address given by the four byte-parts */
 #define IP4_ADDR1(ipaddr, a,b,c,d) \
