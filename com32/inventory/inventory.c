@@ -447,8 +447,8 @@ char foot[]="\t</CONTENT>\n"
         printf("\nRegistration machine : %s (Y/N)", hostname);
         fgets((char*) buffer, sizeof buffer, stdin);
         if (buffer[0] == 'y' || buffer[0] == 'Y'){
-            printpointmsleep(100,30);
             dump(&hardware,bufferxml);
+            printpointmsleep(100,30);
             syslinux_reboot(1);
         }
         printf("\nRegistration cancel : return to quit\n");
