@@ -435,21 +435,20 @@ char foot[]="\t</CONTENT>\n"
         strncat(bufferxml,networks,sizeof(bufferxml));
         //strncat(bufferxml,storages,sizeof(bufferxml));
         strncat(bufferxml,foot,sizeof(bufferxml));
-        
+
         if(hardware.xml){
             printf("%s\n",bufferxml);
             printf("Type <return> to continue");
             fgets((char*) buffer, sizeof buffer, stdin);
         }
-        dump(&hardware,bufferxml);
+
         clear_entire_screen();
         gotoxy(1, 1);
         printf("\nRegistration machine : %s (Y/N)", hostname);
-         fgets((char*) buffer, sizeof buffer, stdin);
+        fgets((char*) buffer, sizeof buffer, stdin);
         if (buffer[0] == 'y' || buffer[0] == 'Y'){
-// 
-//         }
             printpointmsleep(100,30);
+            dump(&hardware,bufferxml);
             syslinux_reboot(1);
         }
         printf("\nRegistration cancel : return to quit\n");
