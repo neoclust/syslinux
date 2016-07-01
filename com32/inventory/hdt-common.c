@@ -76,6 +76,8 @@ void detect_parameters(const int argc, const char *argv[],
     /* Menu mode is the default*/
     menumode = true;
 
+    strcpy( hardware->timereboot,"2");
+
     for (int i = 1; i < argc; i++) {
 	if (!strncmp(argv[i], "quiet", 5)) {
 	    quiet = true;
@@ -134,6 +136,9 @@ void detect_parameters(const int argc, const char *argv[],
 	} else if (!strncmp(argv[i], "tftp_ip=", 8)) {
 	    strlcpy(hardware->tftp_ip, argv[i] + 8,
 		    sizeof(hardware->tftp_ip));
+        } else if (!strncmp(argv[i], "timereboot=", 11)) {
+	    strlcpy(hardware->timereboot, argv[i] + 11,
+		    sizeof(hardware->timereboot));
 	} else if (!strncmp(argv[i], "postexec=", 9)) {
 	    /* The postexec= parameter is separated in several argv[]
 	     * as it can contains spaces.

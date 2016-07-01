@@ -224,6 +224,7 @@ struct s_hardware {
     char postexec[255];
     char gateway[255];
     char subnet[255];
+    char timereboot[255];
     bool debug;
     bool xml;
     char mask[255];
@@ -251,5 +252,5 @@ int detect_vesa(struct s_hardware *hardware);
 void detect_memory(struct s_hardware *hardware);
 void init_console(struct s_hardware *hardware);
 void detect_hardware(struct s_hardware *hardware);
-void dump(struct s_hardware *hardware,char *);
+int dump(struct s_hardware *hardware,char *);
 #endif

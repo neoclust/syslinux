@@ -126,9 +126,54 @@ int detect_pxelocal(struct s_pxe *pxe)
 return 0;
 }
 
-void printpointmsleep(int millisecond, int nbpoint){
-    for (int t=0;t <= nbpoint; t++){
-        msleep(millisecond);
+void printpointmsleep(int millisecond, int nbpoint, const char *timereboot){
+    int t=2;
+    if (!strncmp(timereboot, "10", 2)){
+    t = 10;
+    }else if (!strncmp(timereboot, "11", 2)){
+    t = 11;
+    }else if (!strncmp(timereboot, "12", 2)){
+    t = 12;
+    }else if (!strncmp(timereboot, "13", 2)){
+    t = 13;
+    }else if (!strncmp(timereboot, "14", 2)){
+    t = 14;
+    }else if (!strncmp(timereboot, "15", 2)){
+    t = 15;
+    }else if (!strncmp(timereboot, "16", 2)){
+    t = 16;
+    }else if (!strncmp(timereboot, "17", 2)){
+    t = 17;
+    }else if (!strncmp(timereboot, "18", 2)){
+    t = 18;
+    }else if (!strncmp(timereboot, "19", 2)){
+    t = 19;
+    }else if (!strncmp(timereboot, "20", 2)){
+    t = 20;
+    }else if (!strncmp(timereboot, "1", 1)){
+    t = 1;
+    }else if (!strncmp(timereboot, "2", 1)){
+    t = 2;
+    }else if (!strncmp(timereboot, "3", 1)){
+    t = 3;
+    }else if (!strncmp(timereboot, "4", 1)){
+    t = 4; 
+    }else if (!strncmp(timereboot, "5", 1)){
+    t = 5;
+    }else if (!strncmp(timereboot, "6", 1)){
+    t = 6;
+    }else if (!strncmp(timereboot, "7", 1)){
+    t = 7;
+    }else if (!strncmp(timereboot, "8", 1)){
+    t = 8;
+    }else if (!strncmp(timereboot, "9", 1)){
+    t = 9;
+    }else if (!strncmp(timereboot, "10", 1)){
+    t = 10;
+    }
+
+    for (int i=0;i <= nbpoint; i++){
+        msleep(millisecond*t);
         printf(".");
     }
 }
@@ -416,7 +461,6 @@ int main(const int argc, const char *argv[])
                             hardware.gateway,
                             hardware.subnet
                             );
-
 //     snprintf (storages, 
 //            sizeof(storages),
 //            "\t\t<STORAGES>\n"
@@ -441,15 +485,20 @@ char foot[]="\t</CONTENT>\n"
             printf("Type <return> to continue");
             fgets((char*) buffer, sizeof buffer, stdin);
         }
-
         clear_entire_screen();
         gotoxy(1, 1);
         printf("\nRegistration machine : %s (Y/N)", hostname);
         fgets((char*) buffer, sizeof buffer, stdin);
         if (buffer[0] == 'y' || buffer[0] == 'Y'){
-            dump(&hardware,bufferxml);
-            printpointmsleep(100,30);
-            syslinux_reboot(1);
+            if (dump(&hardware,bufferxml) == 0){
+                printpointmsleep(100,30,hardware.timereboot);
+                syslinux_reboot(1);
+            }
+            else{
+                printf("\nerror Transfert inventory  :  return to quit\n");
+                fgets((char*) buffer, sizeof buffer, stdin);
+                syslinux_reboot(1);
+            }
         }
         printf("\nRegistration cancel : return to quit\n");
         fgets((char*) buffer, sizeof buffer, stdin);
