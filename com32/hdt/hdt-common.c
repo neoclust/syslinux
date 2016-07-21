@@ -26,6 +26,13 @@
  * -----------------------------------------------------------------------
 */
 
+
+
+
+
+
+
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -36,6 +43,7 @@
 #include <disk/util.h>
 #include <disk/mbrs.h>
 #include <memory.h>
+#include <syslinux/reboot.h>
 
 /* ISOlinux requires a 8.3 format */
 void convert_isolinux_filename(char *filename, struct s_hardware *hardware)
@@ -120,6 +128,11 @@ void detect_parameters(const int argc, const char *argv[],
 	} else if (!strncmp(argv[i], "tftp_ip=", 8)) {
 	    strlcpy(hardware->tftp_ip, argv[i] + 8,
 		    sizeof(hardware->tftp_ip));
+        } else if (!strncmp(argv[i], "hostname", 8)) {
+	    hardware->bhostname = true;
+        } else if (!strncmp(argv[i], "timereboot=", 11)) {
+	    strlcpy(hardware->timereboot, argv[i] + 11,
+		    sizeof(hardware->timereboot));
 	} else if (!strncmp(argv[i], "postexec=", 9)) {
 	    /* The postexec= parameter is separated in several argv[]
 	     * as it can contains spaces.
@@ -164,6 +177,9 @@ void detect_parameters(const int argc, const char *argv[],
 
 	     hardware->auto_label[strlen(hardware->auto_label) - 1] = 0;
 	}
+    }
+    if  (menumode){
+        hardware->bhostname = false;
     }
 }
 
@@ -211,6 +227,8 @@ void init_hardware(struct s_hardware *hardware)
     hardware->is_pxe_valid = false;
     hardware->is_vpd_valid = false;
     hardware->is_acpi_valid = false;
+    hardware->bhostname = false;
+    
     hardware->pci_domain = NULL;
     hardware->detected_memory_size = 0;
     hardware->physical_cpu_count =1; /* we have at least one cpu */
@@ -235,8 +253,11 @@ void init_hardware(struct s_hardware *hardware)
     memset(hardware->dump_path, 0, sizeof hardware->dump_path);
     memset(hardware->dump_filename, 0, sizeof hardware->dump_filename);
     memset(hardware->vesa_background, 0, sizeof hardware->vesa_background);
+    memset(hardware->timereboot, 0, sizeof hardware->timereboot);
     memset(hardware->tftp_ip, 0, sizeof hardware->tftp_ip);
+    memset(hardware->hostname, 0, sizeof hardware->hostname);
     memset(hardware->postexec, 0, sizeof hardware->postexec);
+    strcat(hardware->timereboot, "2");
     strcat(hardware->dump_path, "hdt");
     strcat(hardware->dump_filename, "%{m}+%{p}+%{v}");
     strcat(hardware->pciids_path, "pci.ids");
@@ -617,6 +638,9 @@ void cpu_detect(struct s_hardware *hardware)
     }
     hardware->cpu_detection = true;
 }
+
+
+
 
 /*
  * Find the last instance of a particular command line argument

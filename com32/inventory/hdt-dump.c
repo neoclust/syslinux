@@ -48,29 +48,29 @@ char *get_value_from_option(struct s_hardware *hardware, char *option)
     dump_options[0].flag = "%{m}";
     dump_options[0].item = hardware->pxe.mac_addr;
 
-    dump_options[1].flag = "%{v}";
-    dump_options[1].item = hardware->dmi.system.manufacturer;
-
-    dump_options[2].flag = "%{p}";
-    dump_options[2].item = hardware->dmi.system.product_name;
-
-    dump_options[3].flag = "%{ba}";
-    dump_options[3].item = hardware->dmi.base_board.asset_tag;
-
-    dump_options[4].flag = "%{bs}";
-    dump_options[4].item = hardware->dmi.base_board.serial;
-
-    dump_options[5].flag = "%{ca}";
-    dump_options[5].item = hardware->dmi.chassis.asset_tag;
-
-    dump_options[6].flag = "%{cs}";
-    dump_options[6].item = hardware->dmi.chassis.serial;
-
-    dump_options[7].flag = "%{sk}";
-    dump_options[7].item = hardware->dmi.system.sku_number;
-
-    dump_options[8].flag = "%{ss}";
-    dump_options[8].item = hardware->dmi.system.serial;
+//     dump_options[1].flag = "%{v}";
+//     dump_options[1].item = hardware->dmi.system.manufacturer;
+// 
+//     dump_options[2].flag = "%{p}";
+//     dump_options[2].item = hardware->dmi.system.product_name;
+// 
+//     dump_options[3].flag = "%{ba}";
+//     dump_options[3].item = hardware->dmi.base_board.asset_tag;
+// 
+//     dump_options[4].flag = "%{bs}";
+//     dump_options[4].item = hardware->dmi.base_board.serial;
+// 
+//     dump_options[5].flag = "%{ca}";
+//     dump_options[5].item = hardware->dmi.chassis.asset_tag;
+// 
+//     dump_options[6].flag = "%{cs}";
+//     dump_options[6].item = hardware->dmi.chassis.serial;
+// 
+//     dump_options[7].flag = "%{sk}";
+//     dump_options[7].item = hardware->dmi.system.sku_number;
+// 
+//     dump_options[8].flag = "%{ss}";
+//     dump_options[8].item = hardware->dmi.system.serial;
 
     dump_options[9].flag = NULL;
     dump_options[9].item = NULL;
@@ -91,23 +91,23 @@ char *compute_filename(struct s_hardware *hardware)
     snprintf(filename, 512, "%s/%s", hardware->dump_path,
 	     hardware->dump_filename);
 
-    /* Until we found some dump parameters */
-    char *buffer;
-    while ((buffer = strstr(filename, "%{"))) {
-	// Find the end of the parameter
-	char *buffer_end = strstr(buffer, "}");
-
-	// Extracting the parameter between %{ and }
-	char option[8] = { 0 };
-	strncpy(option, buffer, buffer_end - buffer + 1);
-
-	/* Replace this option by its value in the filename 
-	 * Filename is longer than the previous filename we had
-	 * so let's restart from the beginning */
-	filename =
-	    strreplace(filename, option,
-		       get_value_from_option(hardware, option));
-    }
+//     /* Until we found some dump parameters */
+//     char *buffer;
+//     while ((buffer = strstr(filename, "%{"))) {
+// 	// Find the end of the parameter
+// 	char *buffer_end = strstr(buffer, "}");
+// 
+// 	// Extracting the parameter between %{ and }
+// 	char option[8] = { 0 };
+// 	strncpy(option, buffer, buffer_end - buffer + 1);
+// 
+// 	/* Replace this option by its value in the filename 
+// 	 * Filename is longer than the previous filename we had
+// 	 * so let's restart from the beginning */
+// 	filename =
+// 	    strreplace(filename, option,
+// 		       get_value_from_option(hardware, option));
+//     }
 
     /* We replace the ":" in the filename by some "-"
      * This will avoid Microsoft FS turning crazy */
