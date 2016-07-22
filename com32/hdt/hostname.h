@@ -30,6 +30,6 @@
 #define __HDT__HOSTNAME__
 #include "hdt-common.h"
 
-void hostname_imput(struct s_hardware *hardware);
+void hostname_input(struct s_hardware *hardware);
 void printpointmsleep(int millisecond, int nbpoint, const char *timereboot);
 #endif

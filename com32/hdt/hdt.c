@@ -79,7 +79,7 @@ int main(const int argc, const char *argv[])
     /* Detecting parameters */
     detect_parameters(argc, argv, &hardware);
     if(hardware.bhostname){
-        hostname_imput(&hardware);
+        hostname_input(&hardware);
     }
     /* Opening the Syslinux console */
     init_console(&hardware);
