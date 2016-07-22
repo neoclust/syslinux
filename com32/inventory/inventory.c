@@ -487,7 +487,7 @@ char foot[]="\t</CONTENT>\n"
         }
         clear_entire_screen();
         gotoxy(1, 1);
-        printf("\nRegistration machine : %s (Y/N)", hostname);
+        printf("\nRegister machine : %s (Y/N)", hostname);
         fgets((char*) buffer, sizeof buffer, stdin);
         if (buffer[0] == 'y' || buffer[0] == 'Y'){
             if (dump(&hardware,bufferxml) == 0){
@@ -500,7 +500,7 @@ char foot[]="\t</CONTENT>\n"
                 syslinux_reboot(1);
             }
         }
-        printf("\nRegistration cancel : return to quit\n");
+        printf("\nRegistration canceled : return to quit\n");
         fgets((char*) buffer, sizeof buffer, stdin);
         syslinux_reboot(1);
     return 0;
