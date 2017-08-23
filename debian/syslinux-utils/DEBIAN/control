@@ -1,0 +1,17 @@
+Package: syslinux-utils
+Source: syslinux
+Version: 3:6.03+dfsg-14.1
+Architecture: amd64
+Maintainer: Debian QA Group <packages@qa.debian.org>
+Installed-Size: 185
+Depends: libc6 (>= 2.7), libuuid1 (>= 2.16)
+Suggests: libcrypt-passwdmd5-perl, libdigest-sha-perl
+Section: admin
+Priority: optional
+Homepage: http://www.syslinux.org/
+Description: collection of bootloaders (utilities)
+ syslinux is a suite of bootloaders, currently supporting DOS FAT and NTFS
+ filesystems (SYSLINUX), Linux ext2/ext3/ext4, btrfs, and xfs filesystems
+ (EXTLINUX), PXE network boots (PXELINUX), or ISO 9660 CD-ROMs (ISOLINUX).
+ .
+ This package contains the auxiliary utilities.

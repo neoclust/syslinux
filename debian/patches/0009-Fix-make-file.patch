@@ -1,0 +1,28 @@
+From 5730d91335b69a96a237fb3fc5d8e07862199613 Mon Sep 17 00:00:00 2001
+From: root <root@PulseStretch.lecureuil.fr>
+Date: Wed, 9 Aug 2017 22:14:57 +0200
+Subject: [PATCH 9/9] Fix make file
+
+---
+ com32/Makefile | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/com32/Makefile b/com32/Makefile
+index 754c915..574cf2e 100644
+--- a/com32/Makefile
++++ b/com32/Makefile
+@@ -1,5 +1,5 @@
+ SUBDIRS = libupload tools lib elflink/ldlinux gpllib libutil modules mboot \
+-	  menu samples elflink rosh cmenu hdt gfxboot sysdump lua/src chain
++	  menu samples elflink rosh cmenu hdt inventory gfxboot sysdump lua/src chain
+ 
+ .PHONY: subdirs $(SUBDIRS)
+ subdirs: $(SUBDIRS)
+@@ -21,3 +21,4 @@ rosh: lib libutil
+ samples: libutil elflink/ldlinux
+ sysdump: lib libutil libupload gpllib
+ lua/src: cmenu modules
++inventory: lib libutil gpllib libupload cmenu
+-- 
+2.11.0
+

@@ -1,0 +1,25 @@
+From b79b5275034c5e893f62b7797dff547c582dd950 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Nicolas=20L=C3=A9cureuil?= <neoclust@mageia.org>
+Date: Fri, 24 Jun 2016 10:24:38 +0200
+Subject: [PATCH 8/9] Use vesamenu.c32 instead of menu.c32
+
+---
+ com32/inventory/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/com32/inventory/Makefile b/com32/inventory/Makefile
+index 6ef5989..0d2db6a 100644
+--- a/com32/inventory/Makefile
++++ b/com32/inventory/Makefile
+@@ -44,7 +44,7 @@ ISOLINUX_DIR            ?= isolinux
+ FLOPPY_DIR		?= floppy
+ PCI_IDS_FILE            ?= $(PWD)/$(FLOPPY_DIR)/pci.ids
+ GZ_PCI_IDS_FILE         ?= $(PCI_IDS_FILE).gz
+-MENU_COM32              ?= $(com32)/menu/menu.c32
++MENU_COM32              ?= $(com32)/menu/vesamenu.c32
+ CHAIN_COM32             ?= $(com32)/chain/chain.c32
+ ART_DIR                 ?= art/
+ QEMU			?= qemu-kvm
+-- 
+2.11.0
+

@@ -1,0 +1,32 @@
+From cb405baa5b6f86bfa4e0d54dfab6a48accf9a9a5 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Nicolas=20L=C3=A9cureuil?= <neoclust@mageia.org>
+Date: Sun, 22 May 2016 19:26:19 +0200
+Subject: [PATCH 4/9] Install inventory module
+
+---
+ Makefile | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index fb387c5..746f964 100644
+--- a/Makefile
++++ b/Makefile
+@@ -142,13 +142,13 @@ MODULES = memdisk/memdisk \
+ 	com32/hdt/*.c32 com32/rosh/*.c32 com32/gfxboot/*.c32 \
+ 	com32/sysdump/*.c32 com32/lua/src/*.c32 com32/chain/*.c32 \
+ 	com32/lib/*.c32 com32/libutil/*.c32 com32/gpllib/*.c32 \
+-	com32/elflink/ldlinux/*.c32 com32/cmenu/libmenu/*.c32
++	com32/elflink/ldlinux/*.c32 com32/cmenu/libmenu/*.c32 com32/inventory/*.c32
+ else
+ # FIXME: Prune other BIOS-centric modules
+ MODULES = com32/menu/*.c32 com32/modules/*.c32 com32/mboot/*.c32 \
+ 	com32/hdt/*.c32 com32/rosh/*.c32 com32/gfxboot/*.c32 \
+ 	com32/sysdump/*.c32 com32/lua/src/*.c32 com32/chain/*.c32 \
+-	com32/lib/*.c32 com32/libutil/*.c32 com32/gpllib/*.c32 \
++	com32/lib/*.c32 com32/libutil/*.c32 com32/gpllib/*.c32 com32/inventory/*.c32\
+ 	com32/cmenu/libmenu/*.c32 com32/elflink/ldlinux/$(LDLINUX)
+ endif
+ 
+-- 
+2.11.0
+

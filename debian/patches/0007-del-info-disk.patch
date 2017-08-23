@@ -1,0 +1,44 @@
+From 5baa048cdaecb93e19f028e3cfeae71eb20cda1e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Jean-fran=C3=A7ois=20kneib?= <jean-francois.kneib@siveo.net>
+Date: Mon, 20 Jun 2016 10:39:20 +0200
+Subject: [PATCH 7/9] del info disk
+
+---
+ com32/inventory/inventory.c | 14 +-------------
+ 1 file changed, 1 insertion(+), 13 deletions(-)
+
+diff --git a/com32/inventory/inventory.c b/com32/inventory/inventory.c
+index d644615..a1a9960 100644
+--- a/com32/inventory/inventory.c
++++ b/com32/inventory/inventory.c
+@@ -287,8 +287,7 @@ int main(const int argc, const char *argv[])
+     detect_parameters(argc, argv, &hardware);
+     detect_hardware(&hardware);
+ 
+-//     detect_diskslocal(disk_info, &nbdisk);
+-//     disks_summarylocal(disk_info);
++
+     //recuperation ip et macadress
+     const union syslinux_derivative_info *sdi;
+     char tftp_ip[50], gateway[50], netmask[50], myip[50], ipver[50], subnet[50];
+@@ -583,17 +582,6 @@ int main(const int argc, const char *argv[])
+                             netmask,
+                             gateway,
+                             subnet);
+-// char disk_size[11];
+-// disks_size_first_disk(disk_info,disk_size);
+-// if (disk_size[0] != 0){
+-//     snprintf (storages,
+-//            sizeof(storages),
+-//            "\t\t<STORAGES>\n"
+-//                 "\t\t\t<NAME>hd0</NAME>\n"
+-//                 "\t\t\t<TYPE>disk</TYPE>\n"
+-//                 "\t\t\t<DISKSIZE>%s</DISKSIZE>\n"
+-//            "\t\t</STORAGES>\n",disk_size);
+-// }
+ 
+     snprintf (storages, 
+            sizeof(storages),
+-- 
+2.11.0
+

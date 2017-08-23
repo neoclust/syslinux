@@ -1,0 +1,18 @@
+Package: extlinux
+Source: syslinux
+Version: 3:6.03+dfsg-14.1
+Architecture: amd64
+Maintainer: Debian QA Group <packages@qa.debian.org>
+Installed-Size: 293
+Depends: libc6 (>= 2.7)
+Recommends: syslinux-common
+Section: admin
+Priority: optional
+Homepage: http://www.syslinux.org/
+Description: collection of bootloaders (Linux ext2/ext3/ext4, btrfs, and xfs bootloader)
+ syslinux is a suite of bootloaders, currently supporting DOS FAT and NTFS
+ filesystems (SYSLINUX), Linux ext2/ext3/ext4, btrfs, and xfs filesystems
+ (EXTLINUX), PXE network boots (PXELINUX), or ISO 9660 CD-ROMs (ISOLINUX).
+ .
+ This package contains the bootloader for Linux ext2/ext3/ext4, btrfs, and xfs
+ filesystems (EXTLINUX).

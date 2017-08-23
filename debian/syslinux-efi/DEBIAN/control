@@ -1,0 +1,18 @@
+Package: syslinux-efi
+Source: syslinux
+Version: 3:6.03+dfsg-14.1
+Architecture: all
+Maintainer: Debian QA Group <packages@qa.debian.org>
+Installed-Size: 418
+Recommends: syslinux-common
+Suggests: dosfstools
+Section: admin
+Priority: optional
+Homepage: http://www.syslinux.org/
+Description: collection of bootloaders (UEFI bootloader)
+ syslinux is a suite of bootloaders, currently supporting DOS FAT and NTFS
+ filesystems (SYSLINUX), Linux ext2/ext3/ext4, btrfs, and xfs filesystems
+ (EXTLINUX), PXE network boots (PXELINUX), or ISO 9660 CD-ROMs (ISOLINUX).
+ .
+ This package contains the bootloader for the Unified Extensible Firmware
+ Interface (EFI).

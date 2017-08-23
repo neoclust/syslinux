@@ -1,0 +1,2473 @@
+From 211532c79a881614c77195a235e65a8c5eb12f93 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Nicolas=20L=C3=A9cureuil?= <neoclust@mageia.org>
+Date: Fri, 20 May 2016 10:39:34 +0200
+Subject: [PATCH 2/9] New version of inventory plugin from jfk
+
+---
+ com32/inventory/Makefile       |  18 +-
+ com32/inventory/README         |  18 +-
+ com32/inventory/hdt-ata.c      |  38 ++
+ com32/inventory/hdt-ata.h      |  76 ++++
+ com32/inventory/hdt-common.c   | 792 +++++++++++++++++++++++++++++++++++++++++
+ com32/inventory/hdt-common.h   | 250 +++++++++++++
+ com32/inventory/hdt-dump-hdt.c |  56 +++
+ com32/inventory/hdt-dump.c     | 228 ++++++++++++
+ com32/inventory/hdt-dump.h     |  85 +++++
+ com32/inventory/hdt-util.c     |  96 +++++
+ com32/inventory/hdt-util.h     |  34 ++
+ com32/inventory/hdt.h          |  47 +++
+ com32/inventory/inventory.c    | 341 ++++--------------
+ com32/inventory/inventory.h    |  83 +++--
+ 14 files changed, 1835 insertions(+), 327 deletions(-)
+ create mode 100644 com32/inventory/hdt-ata.c
+ create mode 100644 com32/inventory/hdt-ata.h
+ create mode 100644 com32/inventory/hdt-common.c
+ create mode 100644 com32/inventory/hdt-common.h
+ create mode 100644 com32/inventory/hdt-dump-hdt.c
+ create mode 100644 com32/inventory/hdt-dump.c
+ create mode 100644 com32/inventory/hdt-dump.h
+ create mode 100644 com32/inventory/hdt-util.c
+ create mode 100644 com32/inventory/hdt-util.h
+ create mode 100644 com32/inventory/hdt.h
+
+diff --git a/com32/inventory/Makefile b/com32/inventory/Makefile
+index 2ee6bbb..6ef5989 100644
+--- a/com32/inventory/Makefile
++++ b/com32/inventory/Makefile
+@@ -12,7 +12,7 @@
+ ## -----------------------------------------------------------------------
+ 
+ ##
+-## Hardware Detection Tool
++## registerinventory
+ ##
+ 
+ VPATH = $(SRC)
+@@ -20,7 +20,7 @@ include $(MAKEDIR)/elf.mk
+ 
+ LIBS      = $(objdir)/com32/libupload/libcom32upload.a
+ C_LIBS    += $(objdir)/com32/cmenu/libmenu/libmenu.c32
+-CFLAGS    += -I$(com32)/cmenu/libmenu -I$(com32)
++CFLAGS    += -I$(com32)/cmenu/libmenu -I$(com32) -I$(topdir)/core/lwip/src/include/ -I$(topdir)/core/lwip/src/include/ipv4
+ 
+ MODULES	  = inventory.c32
+ TESTFILES =
+@@ -52,15 +52,15 @@ QEMU			?= qemu-kvm
+ all: $(MODULES) $(TESTFILES) echo
+ 
+ inventory.elf : $(OBJS) $(LIBS) $(C_LIBS)
+-	$(LD) $(LDFLAGS) -o $@ $^
++	$(LD)  $(LDFLAGS) -o $@ $^
+ 
+ echo:
+-	@echo "********AAAAAAAAAAAAAAAAAAAAAAAAAA*************" $(OBJS) $(LIBS) $(C_LIBS)
+-	@echo "V= ******************************"$(LD) $(LDFLAGS) -o $@ $^
+-	@echo "V= ******************************"$(CODENAME)
+-	@echo "V= ******************************"$(NODASH_VERSION)
+-	@echo "V= ******************************"$(SUM_FILE)
+-	
++	@echo "INFORMATION VARIABLE"
++	@echo "******************************"
++	@echo $(OBJS) $(LIBS) $(C_LIBS)
++	@echo "******************************"
++	@echo $(LD) $(LDFLAGS) -o $@ $^
++	@echo "******************************"
+ 	
+ 
+ tidy dist:
+diff --git a/com32/inventory/README b/com32/inventory/README
+index 8e17161..c194ff6 100644
+--- a/com32/inventory/README
++++ b/com32/inventory/README
+@@ -1,19 +1,5 @@
+ --------------
+-Compiling HDT
++Compiling inventory
+ --------------
+-To build HDT, you just have to do a "make" call in this directory.
+-
++To build inventory, you just have to do a "make" call in this directory.
+ ---------------------------
+-Creating a bootable floppy
+---------------------------
+-To build a bootable HDT floppy image, you can do a "make hdt.img" call.
+-This will requires the mtools (http://mtools.linux.lu) to be installed.
+-The script will try to pick several files from your system :
+-- /lib/modules/`uname -r`/modules.alias
+-- /lib/modules/`uname -r`/modules.pcimap
+-- /usr/share/pci.ids or /usr/share/hwdata/pci.ids
+-
+-This paths can be overrided with the following command line:
+-make MODULES_ALIAS_FILE=$(PWD)/floppy/modules.alias MODULES_PCIMAP_FILE=$(PWD)/floppy/modules.pcimap PCI_IDS_FILE=$(PWD)/floppy/pci.ids hdt.img
+-
+-If your system doesn't have pci.ids, please download it from http://pciids.sourceforge.net/ and put it into the floppy/ directory.
+diff --git a/com32/inventory/hdt-ata.c b/com32/inventory/hdt-ata.c
+new file mode 100644
+index 0000000..9ba17ba
+--- /dev/null
++++ b/com32/inventory/hdt-ata.c
+@@ -0,0 +1,38 @@
++/* ----------------------------------------------------------------------- *
++ *
++ *   Copyright 2009 Erwan Velu - All Rights Reserved
++ *
++ *   Permission is hereby granted, free of charge, to any person
++ *   obtaining a copy of this software and associated documentation
++ *   files (the "Software"), to deal in the Software without
++ *   restriction, including without limitation the rights to use,
++ *   copy, modify, merge, publish, distribute, sublicense, and/or
++ *   sell copies of the Software, and to permit persons to whom
++ *   the Software is furnished to do so, subject to the following
++ *   conditions:
++ *
++ *   The above copyright notice and this permission notice shall
++ *   be included in all copies or substantial portions of the Software.
++ *
++ *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ *   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
++ *   OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ *   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
++ *   HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++ *   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ *   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ *   OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * -----------------------------------------------------------------------
++ */
++
++#include <string.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <console.h>
++#include <disk/geom.h>
++#include <disk/util.h>
++
++#include "com32io.h"
++#include "hdt-common.h"
++#include "hdt-ata.h"
+diff --git a/com32/inventory/hdt-ata.h b/com32/inventory/hdt-ata.h
+new file mode 100644
+index 0000000..ff35a59
+--- /dev/null
++++ b/com32/inventory/hdt-ata.h
+@@ -0,0 +1,76 @@
++/* ----------------------------------------------------------------------- *
++ *
++ *   Copyright 2009 Erwan Velu - All Rights Reserved
++ *
++ *   Permission is hereby granted, free of charge, to any person
++ *   obtaining a copy of this software and associated documentation
++ *   files (the "Software"), to deal in the Software without
++ *   restriction, including without limitation the rights to use,
++ *   copy, modify, merge, publish, distribute, sublicense, and/or
++ *   sell copies of the Software, and to permit persons to whom
++ *   the Software is furnished to do so, subject to the following
++ *   conditions:
++ *
++ *   The above copyright notice and this permission notice shall
++ *   be included in all copies or substantial portions of the Software.
++ *
++ *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ *   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
++ *   OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ *   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
++ *   HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++ *   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ *   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ *   OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * -----------------------------------------------------------------------
++ */
++
++#ifndef DEFINE_HDT_ATA_H
++#define DEFINE_HDT_ATA_H
++#include <com32io.h>
++
++#include <disk/geom.h>
++#include "hdt.h"
++
++struct ata_identify_device {
++    unsigned short words000_009[10];
++    unsigned char serial_no[20];
++    unsigned short words020_022[3];
++    unsigned char fw_rev[8];
++    unsigned char model[40];
++    unsigned short words047_079[33];
++    unsigned short major_rev_num;
++    unsigned short minor_rev_num;
++    unsigned short command_set_1;
++    unsigned short command_set_2;
++    unsigned short command_set_extension;
++    unsigned short cfs_enable_1;
++    unsigned short word086;
++    unsigned short csf_default;
++    unsigned short words088_255[168];
++} ATTR_PACKED;
++
++struct ata_driveinfo {
++    struct ata_identify_device aid;	/* IDENTIFY xxx DEVICE data */
++    char host_bus_type[5];
++    char interface_type[9];
++    char interface_port;
++} ATTR_PACKED;
++
++/* Useless stuff until I manage how to send ata packets */
++#ifdef ATA
++enum {
++    ATA_ID_FW_REV = 23,
++    ATA_ID_PROD = 27,
++    ATA_ID_FW_REV_LEN = 8,
++    ATA_ID_PROD_LEN = 40,
++};
++void ata_id_c_string(const uint16_t * id, unsigned char *s, unsigned int ofs,
++		     unsigned int len);
++void ata_id_string(const uint16_t * id, unsigned char *s, unsigned int ofs,
++		   unsigned int len);
++void printregs(const com32sys_t * r);
++#endif
++
++#endif
+diff --git a/com32/inventory/hdt-common.c b/com32/inventory/hdt-common.c
+new file mode 100644
+index 0000000..fbb8c98
+--- /dev/null
++++ b/com32/inventory/hdt-common.c
+@@ -0,0 +1,792 @@
++/* ----------------------------------------------------------------------- *
++ *
++ *   Copyright 2009 Erwan Velu - All Rights Reserved
++ *
++ *   Permission is hereby granted, free of charge, to any person
++ *   obtaining a copy of this software and associated documentation
++ *   files (the "Software"), to deal in the Software without
++ *   restriction, including without limitation the rights to use,
++ *   copy, modify, merge, publish, distribute, sublicense, and/or
++ *   sell copies of the Software, and to permit persons to whom
++ *   the Software is furnished to do so, subject to the following
++ *   conditions:
++ *
++ *   The above copyright notice and this permission notice shall
++ *   be included in all copies or substantial portions of the Software.
++ *
++ *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ *   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
++ *   OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ *   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
++ *   HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++ *   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ *   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ *   OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * -----------------------------------------------------------------------
++*/
++
++#include <stdlib.h>
++#include <string.h>
++#include <stdio.h>
++#include <getkey.h>
++#include "syslinux/config.h"
++#include "../lib/sys/vesa/vesa.h"
++#include "hdt-common.h"
++#include <disk/util.h>
++#include <disk/mbrs.h>
++#include <memory.h>
++
++/* ISOlinux requires a 8.3 format */
++void convert_isolinux_filename(char *filename, struct s_hardware *hardware)
++{
++    /* Exit if we are not running ISOLINUX */
++    if (hardware->sv->filesystem != SYSLINUX_FS_ISOLINUX)
++	return;
++    /* Searching the dot */
++    char *dot = strchr(filename, '.');
++    /* Exiting if no dot exists in that string */
++    if (dot == NULL)
++	return;
++    /* Exiting if the extension is 3 char or less */
++    if (strlen(dot) <= 4)
++	return;
++
++    /* We have an extension bigger than .blah
++     * so we have to shorten it to 3*/
++    dot[4] = '\0';
++}
++
++void detect_parameters(const int argc, const char *argv[],
++		       struct s_hardware *hardware)
++{
++    /* Quiet mode - make the output more quiet */
++    quiet = true;
++
++    /* Silent mode - make not output at all */
++    silent = false;
++
++    /* Vesa mode isn't set until we explictly call it */
++    vesamode = false;
++
++    /* Automode isn't the default*/
++    automode = false;
++
++    /* Menu mode is the default*/
++    menumode = true;
++
++    for (int i = 1; i < argc; i++) {
++	if (!strncmp(argv[i], "quiet", 5)) {
++	    quiet = true;
++	} else if (!strncmp(argv[i], "silent", 6)) {
++	    silent = true;
++	} else	if (!strncmp(argv[i], "verbose", 7)) {
++	    quiet = false;
++	} else if (!strncmp(argv[i], "modules_pcimap=", 15)) {
++	    strlcpy(hardware->modules_pcimap_path, argv[i] + 15,
++		    sizeof(hardware->modules_pcimap_path));
++	    convert_isolinux_filename(hardware->modules_pcimap_path, hardware);
++	} else if (!strncmp(argv[i], "pciids=", 7)) {
++	    strlcpy(hardware->pciids_path, argv[i] + 7,
++		    sizeof(hardware->pciids_path));
++	    convert_isolinux_filename(hardware->pciids_path, hardware);
++	} else if (!strncmp(argv[i], "modules_alias=", 14)) {
++	    strlcpy(hardware->modules_alias_path, argv[i] + 14,
++		    sizeof(hardware->modules_alias_path));
++	    convert_isolinux_filename(hardware->modules_alias_path, hardware);
++	} else if (!strncmp(argv[i], "memtest=", 8)) {
++	    strlcpy(hardware->memtest_label, argv[i] + 8,
++		    sizeof(hardware->memtest_label));
++	    convert_isolinux_filename(hardware->memtest_label, hardware);
++	} else if (!strncmp(argv[i], "vesa", 4)) {
++	    vesamode = true;
++	    max_console_lines = MAX_VESA_CLI_LINES;
++	    /* If the user defines a background image */
++	    if (!strncmp(argv[i], "vesa=", 5)) {
++		strlcpy(hardware->vesa_background, argv[i] + 5,
++			sizeof(hardware->vesa_background));
++	    }
++	} else if (!strncmp(argv[i], "novesa", 6)) {
++	    vesamode = false;
++	    max_console_lines = MAX_CLI_LINES;
++	} else if (!strncmp(argv[i], "nomenu", 6)) {
++	    menumode = false;
++	} else if (!strncmp(argv[i], "dump_filename=", 14)) {
++	    strlcpy(hardware->dump_filename, argv[i] + 14,
++		    sizeof(hardware->dump_filename));
++	} else if (!strncmp(argv[i], "dump_path=", 10)) {
++	    strlcpy(hardware->dump_path, argv[i] + 10,
++		    sizeof(hardware->dump_path));
++	} else if (!strncmp(argv[i], "tftp_ip=", 8)) {
++	    strlcpy(hardware->tftp_ip, argv[i] + 8,
++		    sizeof(hardware->tftp_ip));
++	} else if (!strncmp(argv[i], "postexec=", 9)) {
++	    /* The postexec= parameter is separated in several argv[]
++	     * as it can contains spaces.
++	     * We use the AUTO_DELIMITER char to define the limits
++	     * of this parameter.
++	     * i.e postexec='linux memtest.bin'
++	     */
++
++	    char *argument = (char*)argv[i]+10;
++	    /* Extracting the first parameter */
++	    strcpy(hardware->postexec, argument);
++
++	    /* While we can't find the other AUTO_DELIMITER, let's process the argv[] */
++	    while ((strchr(argument, AUTO_DELIMITER) == NULL) && (i+1<argc)) {
++		i++;
++	    	argument = (char *)argv[i];
++		strcat(hardware->postexec, " ");
++		strcat(hardware->postexec, argument);
++	    } 
++	
++	     hardware->postexec[strlen(hardware->postexec) - 1] = 0;
++	} else if (!strncmp(argv[i], "auto=", 5)) {
++	    /* The auto= parameter is separated in several argv[]
++	     * as it can contains spaces.
++	     * We use the AUTO_DELIMITER char to define the limits
++	     * of this parameter.
++	     * i.e auto='show dmi; show pci'
++	     */
++
++	    automode=true;
++	    char *argument = (char*)argv[i]+6;
++	    /* Extracting the first parameter */
++	    strcpy(hardware->auto_label, argument);
++
++	    /* While we can't find the other AUTO_DELIMITER, let's process the argv[] */
++	    while ((strchr(argument, AUTO_DELIMITER) == NULL) && (i+1<argc)) {
++		i++;
++	    	argument = (char *)argv[i];
++		strcat(hardware->auto_label, " ");
++		strcat(hardware->auto_label, argument);
++	    } 
++
++	     hardware->auto_label[strlen(hardware->auto_label) - 1] = 0;
++	}
++    }
++}
++
++void detect_syslinux(struct s_hardware *hardware)
++{
++    hardware->sv = syslinux_version();
++    switch (hardware->sv->filesystem) {
++    case SYSLINUX_FS_SYSLINUX:
++	strlcpy(hardware->syslinux_fs, "SYSlinux", 9);
++	break;
++    case SYSLINUX_FS_PXELINUX:
++	strlcpy(hardware->syslinux_fs, "PXElinux", 9);
++	break;
++    case SYSLINUX_FS_ISOLINUX:
++	strlcpy(hardware->syslinux_fs, "ISOlinux", 9);
++	break;
++    case SYSLINUX_FS_EXTLINUX:
++	strlcpy(hardware->syslinux_fs, "EXTlinux", 9);
++	break;
++    case SYSLINUX_FS_UNKNOWN:
++    default:
++	strlcpy(hardware->syslinux_fs, "Unknown Bootloader",
++		sizeof hardware->syslinux_fs);
++	break;
++    }
++}
++
++void init_hardware(struct s_hardware *hardware)
++{
++    hardware->pci_ids_return_code = 0;
++    hardware->modules_pcimap_return_code = 0;
++    hardware->modules_alias_return_code = 0;
++    hardware->cpu_detection = false;
++    hardware->pci_detection = false;
++    hardware->disk_detection = false;
++    hardware->disks_count = 0;
++    hardware->dmi_detection = false;
++    hardware->pxe_detection = false;
++    hardware->vesa_detection = false;
++    hardware->vpd_detection = false;
++    hardware->memory_detection = false;
++    hardware->acpi_detection = false;
++    hardware->nb_pci_devices = 0;
++    hardware->is_dmi_valid = false;
++    hardware->is_pxe_valid = false;
++    hardware->is_vpd_valid = false;
++    hardware->is_acpi_valid = false;
++    hardware->pci_domain = NULL;
++    hardware->detected_memory_size = 0;
++    hardware->physical_cpu_count =1; /* we have at least one cpu */
++
++    /* Cleaning structures */
++    memset(hardware->disk_info, 0, sizeof(hardware->disk_info));
++    memset(hardware->mbr_ids, 0, sizeof(hardware->mbr_ids));
++    memset(&hardware->dmi, 0, sizeof(s_dmi));
++    memset(&hardware->cpu, 0, sizeof(s_cpu));
++    memset(&hardware->pxe, 0, sizeof(struct s_pxe));
++    memset(&hardware->vesa, 0, sizeof(struct s_vesa));
++    memset(&hardware->vpd, 0, sizeof(s_vpd));
++    memset(&hardware->acpi, 0, sizeof(s_acpi));
++    memset(hardware->syslinux_fs, 0, sizeof hardware->syslinux_fs);
++    memset(hardware->pciids_path, 0, sizeof hardware->pciids_path);
++    memset(hardware->modules_pcimap_path, 0,
++	   sizeof hardware->modules_pcimap_path);
++    memset(hardware->modules_alias_path, 0,
++	   sizeof hardware->modules_alias_path);
++    memset(hardware->memtest_label, 0, sizeof hardware->memtest_label);
++    memset(hardware->auto_label, 0, sizeof hardware->auto_label);
++    memset(hardware->dump_path, 0, sizeof hardware->dump_path);
++    memset(hardware->dump_filename, 0, sizeof hardware->dump_filename);
++    memset(hardware->vesa_background, 0, sizeof hardware->vesa_background);
++    memset(hardware->tftp_ip, 0, sizeof hardware->tftp_ip);
++    memset(hardware->postexec, 0, sizeof hardware->postexec);
++    strcat(hardware->dump_path, "hdt");
++    strcat(hardware->dump_filename, "%{m}+%{p}+%{v}");
++    strcat(hardware->pciids_path, "pci.ids");
++    strcat(hardware->modules_pcimap_path, "modules.pcimap");
++    strcat(hardware->modules_alias_path, "modules.alias");
++    strcat(hardware->memtest_label, "memtest");
++    strlcpy(hardware->vesa_background, CLI_DEFAULT_BACKGROUND,
++	    sizeof(hardware->vesa_background));
++}
++
++/*
++ * Detecting if a DMI table exist
++ * if yes, let's parse it
++ */
++int detect_dmi(struct s_hardware *hardware)
++{
++    if (hardware->dmi_detection == true)
++	return -1;
++    hardware->dmi_detection = true;
++    if (dmi_iterate(&hardware->dmi) == -ENODMITABLE) {
++	hardware->is_dmi_valid = false;
++	return -ENODMITABLE;
++    }
++
++    parse_dmitable(&hardware->dmi);
++    hardware->is_dmi_valid = true;
++    return 0;
++}
++
++/*
++ * Detecting ACPI
++ * if yes, let's parse it
++ */
++int detect_acpi(struct s_hardware *hardware)
++{
++    int retval;
++    if (hardware->acpi_detection == true)
++	return -1;
++    hardware->acpi_detection = true;
++    if ((retval=parse_acpi(&hardware->acpi)) != ACPI_FOUND) {
++	hardware->is_acpi_valid = false;
++	return retval;
++    }
++
++    hardware->is_acpi_valid = true;
++    return retval;
++}
++
++/**
++ * vpd_detection - populate the VPD structure
++ *
++ * VPD is a structure available on IBM machines.
++ * It is documented at:
++ *    http://www.pc.ibm.com/qtechinfo/MIGR-45120.html
++ * (XXX the page seems to be gone)
++ **/
++int detect_vpd(struct s_hardware *hardware)
++{
++    if (hardware->vpd_detection)
++	return -1;
++    else
++	hardware->vpd_detection = true;
++
++    if (vpd_decode(&hardware->vpd) == -ENOVPDTABLE) {
++	hardware->is_vpd_valid = false;
++	return -ENOVPDTABLE;
++    } else {
++	hardware->is_vpd_valid = true;
++	return 0;
++    }
++}
++
++/* Detection vesa stuff*/
++int detect_vesa(struct s_hardware *hardware)
++{
++    static com32sys_t rm;
++    struct vesa_general_info *gi;
++    struct vesa_mode_info *mi;
++    uint16_t mode, *mode_ptr;
++    char *oem_ptr;
++    int rv = -1;
++
++    if (hardware->vesa_detection == true)
++	return -1;
++
++    hardware->vesa_detection = true;
++    hardware->is_vesa_valid = false;
++
++    gi = lmalloc(sizeof(*gi));
++    if (!gi)
++	return -1;
++
++    mi = lmalloc(sizeof(*mi));
++    if (!mi)
++	goto out;
++
++    gi->signature = VBE2_MAGIC;	/* Get VBE2 extended data */
++    memset(&rm, 0, sizeof rm);
++    rm.eax.w[0] = 0x4F00;	/* Get SVGA general information */
++    rm.edi.w[0] = OFFS(gi);
++    rm.es = SEG(gi);
++    __intcall(0x10, &rm, &rm);
++
++    if (rm.eax.w[0] != 0x004F) {
++	goto out;
++    };
++
++    mode_ptr = GET_PTR(gi->video_mode_ptr);
++    oem_ptr = GET_PTR(gi->oem_vendor_name_ptr);
++    strlcpy(hardware->vesa.vendor, oem_ptr, sizeof(hardware->vesa.vendor));
++    oem_ptr = GET_PTR(gi->oem_product_name_ptr);
++    strlcpy(hardware->vesa.product, oem_ptr, sizeof(hardware->vesa.product));
++    oem_ptr = GET_PTR(gi->oem_product_rev_ptr);
++    strlcpy(hardware->vesa.product_revision, oem_ptr,
++	    sizeof(hardware->vesa.product_revision));
++
++    hardware->vesa.major_version = (gi->version >> 8) & 0xff;
++    hardware->vesa.minor_version = gi->version & 0xff;
++    hardware->vesa.total_memory = gi->total_memory;
++    hardware->vesa.software_rev = gi->oem_software_rev;
++
++    hardware->vesa.vmi_count = 0;
++
++    while ((mode = *mode_ptr++) != 0xFFFF) {
++
++        memset(&rm, 0, sizeof rm);
++	rm.eax.w[0] = 0x4F01;	/* Get SVGA mode information */
++	rm.ecx.w[0] = mode;
++	rm.edi.w[0] = OFFS(mi);
++	rm.es = SEG(mi);
++	__intcall(0x10, &rm, &rm);
++
++	/* Must be a supported mode */
++	if (rm.eax.w[0] != 0x004f)
++	    continue;
++
++	/* Saving detected values */
++	memcpy(&hardware->vesa.vmi[hardware->vesa.vmi_count].mi, mi,
++	       sizeof(struct vesa_mode_info));
++	hardware->vesa.vmi[hardware->vesa.vmi_count].mode = mode;
++
++	hardware->vesa.vmi_count++;
++    }
++    hardware->is_vesa_valid = true;
++
++    rv = 0;
++out:
++    lfree(mi);
++    lfree(gi);
++    return rv;
++}
++
++/* Try to detect disks from port 0x80 to 0xff */
++void detect_disks(struct s_hardware *hardware)
++{
++    int i = -1;
++    int err;
++
++    if (hardware->disk_detection)
++	return;
++
++    hardware->disk_detection = true;
++    for (int drive = 0x80; drive < 0xff; drive++) {
++	i++;
++	hardware->disk_info[i].disk = drive;
++	err = get_drive_parameters(&hardware->disk_info[i]);
++
++	/*
++	 * Do not print output when drive does not exist or
++	 * doesn't support int13 (cdrom, ...)
++	 */
++	if (err == -1 || !hardware->disk_info[i].cbios)
++	    continue;
++
++	/* Detect MBR */
++	hardware->mbr_ids[i] = get_mbr_id(&hardware->disk_info[i]);
++
++	hardware->disks_count++;
++    }
++}
++
++int detect_pxe(struct s_hardware *hardware)
++{
++    void *dhcpdata;
++
++    size_t dhcplen;
++    t_PXENV_UNDI_GET_NIC_TYPE gnt;
++
++    if (hardware->pxe_detection == true)
++	return -1;
++    hardware->pxe_detection = true;
++    hardware->is_pxe_valid = false;
++    memset(&gnt, 0, sizeof(t_PXENV_UNDI_GET_NIC_TYPE));
++    memset(&hardware->pxe, 0, sizeof(struct s_pxe));
++
++    /* This code can only work if pxelinux is loaded */
++    if (hardware->sv->filesystem != SYSLINUX_FS_PXELINUX) {
++	return -1;
++    }
++// printf("PXE: PXElinux detected\n");
++    if (!pxe_get_cached_info(PXENV_PACKET_TYPE_DHCP_ACK, &dhcpdata, &dhcplen)) {
++	pxe_bootp_t *dhcp = &hardware->pxe.dhcpdata;
++	memcpy(&hardware->pxe.dhcpdata, dhcpdata,
++	       sizeof(hardware->pxe.dhcpdata));
++	snprintf(hardware->pxe.mac_addr, sizeof(hardware->pxe.mac_addr),
++		 "%02x:%02x:%02x:%02x:%02x:%02x", dhcp->CAddr[0],
++		 dhcp->CAddr[1], dhcp->CAddr[2], dhcp->CAddr[3],
++		 dhcp->CAddr[4], dhcp->CAddr[5]);
++
++	/* Saving our IP address in a easy format */
++	hardware->pxe.ip_addr[0] = hardware->pxe.dhcpdata.yip & 0xff;
++	hardware->pxe.ip_addr[1] = hardware->pxe.dhcpdata.yip >> 8 & 0xff;
++	hardware->pxe.ip_addr[2] = hardware->pxe.dhcpdata.yip >> 16 & 0xff;
++	hardware->pxe.ip_addr[3] = hardware->pxe.dhcpdata.yip >> 24 & 0xff;
++
++	if (!pxe_get_nic_type(&gnt)) {
++	    switch (gnt.NicType) {
++	    case PCI_NIC:
++		hardware->is_pxe_valid = true;
++		hardware->pxe.vendor_id = gnt.info.pci.Vendor_ID;
++		hardware->pxe.product_id = gnt.info.pci.Dev_ID;
++		hardware->pxe.subvendor_id = gnt.info.pci.SubVendor_ID;
++		hardware->pxe.subproduct_id =
++		    gnt.info.pci.SubDevice_ID,
++		    hardware->pxe.rev = gnt.info.pci.Rev;
++		hardware->pxe.pci_bus = (gnt.info.pci.BusDevFunc >> 8) & 0xff;
++		hardware->pxe.pci_dev = (gnt.info.pci.BusDevFunc >> 3) & 0x7;
++		hardware->pxe.pci_func = gnt.info.pci.BusDevFunc & 0x03;
++		hardware->pxe.base_class = gnt.info.pci.Base_Class;
++		hardware->pxe.sub_class = gnt.info.pci.Sub_Class;
++		hardware->pxe.prog_intf = gnt.info.pci.Prog_Intf;
++		hardware->pxe.nictype = gnt.NicType;
++		break;
++	    case CardBus_NIC:
++		hardware->is_pxe_valid = true;
++		hardware->pxe.vendor_id = gnt.info.cardbus.Vendor_ID;
++		hardware->pxe.product_id = gnt.info.cardbus.Dev_ID;
++		hardware->pxe.subvendor_id = gnt.info.cardbus.SubVendor_ID;
++		hardware->pxe.subproduct_id =
++		    gnt.info.cardbus.SubDevice_ID,
++		    hardware->pxe.rev = gnt.info.cardbus.Rev;
++		hardware->pxe.pci_bus =
++		    (gnt.info.cardbus.BusDevFunc >> 8) & 0xff;
++		hardware->pxe.pci_dev =
++		    (gnt.info.cardbus.BusDevFunc >> 3) & 0x7;
++		hardware->pxe.pci_func = gnt.info.cardbus.BusDevFunc & 0x03;
++		hardware->pxe.base_class = gnt.info.cardbus.Base_Class;
++		hardware->pxe.sub_class = gnt.info.cardbus.Sub_Class;
++		hardware->pxe.prog_intf = gnt.info.cardbus.Prog_Intf;
++		hardware->pxe.nictype = gnt.NicType;
++		break;
++	    case PnP_NIC:
++	    default:
++		return -1;
++		break;
++	    }
++
++	    /* The firt pass try to find the exact pci device */
++	    hardware->pxe.pci_device = NULL;
++	    hardware->pxe.pci_device_pos = 0;
++	    struct pci_device *pci_device;
++	    int pci_number = 0;
++	    for_each_pci_func(pci_device, hardware->pci_domain) {
++		pci_number++;
++		if ((__pci_bus == hardware->pxe.pci_bus) &&
++		    (__pci_slot == hardware->pxe.pci_dev) &&
++		    (__pci_func == hardware->pxe.pci_func) &&
++		    (pci_device->vendor == hardware->pxe.vendor_id)
++		    && (pci_device->product == hardware->pxe.product_id)) {
++		    hardware->pxe.pci_device = pci_device;
++		    hardware->pxe.pci_device_pos = pci_number;
++		    return 0;
++		}
++	    }
++
++	    /* If we reach that part, it means the pci device pointed by
++	     * the pxe rom wasn't found in our list.
++	     * Let's try to find the device only by its pci ids.
++	     * The pci device we'll match is maybe not exactly the good one
++	     * as we can have the same pci id several times.
++	     * At least, the pci id, the vendor/product will be right.
++	     * That's clearly a workaround for some weird cases.
++	     * This should happend very unlikely */
++	    hardware->pxe.pci_device = NULL;
++	    hardware->pxe.pci_device_pos = 0;
++	    pci_number = 0;
++	    for_each_pci_func(pci_device, hardware->pci_domain) {
++		pci_number++;
++		if ((pci_device->vendor == hardware->pxe.vendor_id)
++		    && (pci_device->product == hardware->pxe.product_id)) {
++		    hardware->pxe.pci_device = pci_device;
++		    hardware->pxe.pci_device_pos = pci_number;
++		    return 0;
++		}
++	    }
++
++	}
++    }
++    return 0;
++}
++
++void detect_memory(struct s_hardware *hardware) {
++     if (hardware->memory_detection == false) {
++	     hardware->memory_detection = true;
++     hardware->detected_memory_size = detect_memsize();
++     }
++}
++
++void detect_pci(struct s_hardware *hardware)
++{
++    if (hardware->pci_detection == true)
++	return;
++    hardware->pci_detection = true;
++
++    hardware->nb_pci_devices = 0;
++
++    /* Scanning to detect pci buses and devices */
++    hardware->pci_domain = pci_scan();
++
++    if (!hardware->pci_domain)
++	return;
++
++    /* Gathering addtional information */
++    gather_additional_pci_config(hardware->pci_domain);
++
++    struct pci_device *pci_device;
++    for_each_pci_func(pci_device, hardware->pci_domain) {
++	hardware->nb_pci_devices++;
++    }
++
++    if (!quiet) {
++	more_printf("PCI: %d devices detected\n", hardware->nb_pci_devices);
++	more_printf("PCI: Resolving names\n");
++    }
++    /* Assigning product & vendor name for each device */
++    hardware->pci_ids_return_code =
++	get_name_from_pci_ids(hardware->pci_domain, hardware->pciids_path);
++
++    if (!quiet)
++	more_printf("PCI: Resolving class names\n");
++    /* Assigning class name for each device */
++    hardware->pci_ids_return_code =
++	get_class_name_from_pci_ids(hardware->pci_domain,
++				    hardware->pciids_path);
++
++    if (!quiet)
++	more_printf("PCI: Resolving module names\n");
++    /* Detecting which kernel module should match each device using modules.pcimap */
++    hardware->modules_pcimap_return_code =
++	get_module_name_from_pcimap(hardware->pci_domain,
++				    hardware->modules_pcimap_path);
++
++    /* Detecting which kernel module should match each device using modules.alias */
++    hardware->modules_alias_return_code =
++	get_module_name_from_alias(hardware->pci_domain,
++				   hardware->modules_alias_path);
++
++}
++
++void cpu_detect(struct s_hardware *hardware)
++{
++    if (hardware->cpu_detection == true)
++	return;
++    detect_cpu(&hardware->cpu);
++    /* Old processors doesn't manage the identify commands 
++     * Let's use the dmi value in that case */
++    if (strlen(remove_spaces(hardware->cpu.model)) == 0)
++	strlcpy(hardware->cpu.model, hardware->dmi.processor.version,
++		sizeof(hardware->cpu.model));
++
++    /* Some CPUs like to put many spaces in the model name
++     * That makes some weird display in console/menu
++     * Let's remove that mulitple spaces */
++    strlcpy(hardware->cpu.model,del_multi_spaces(hardware->cpu.model),sizeof(hardware->cpu.model));
++
++    if ((hardware->is_acpi_valid) && (hardware->acpi.madt.valid)) {
++    	hardware->physical_cpu_count=hardware->acpi.madt.processor_local_apic_count / hardware->cpu.num_cores;
++    }
++    hardware->cpu_detection = true;
++}
++
++/*
++ * Find the last instance of a particular command line argument
++ * (which should include the final =; do not use for boolean arguments)
++ */
++const char *find_argument(const char **argv, const char *argument)
++{
++    int la = strlen(argument);
++    const char **arg;
++    const char *ptr = NULL;
++
++    for (arg = argv; *arg; arg++) {
++	if (!memcmp(*arg, argument, la))
++	    ptr = *arg + la;
++    }
++
++    return ptr;
++}
++
++void clear_screen(void)
++{
++    move_cursor_to_next_line();
++    disable_utf8();
++    set_g1_special_char();
++    set_us_g0_charset();
++    display_cursor(false);
++    clear_entire_screen();
++    gotoxy(0,0);
++    reset_more_printf();
++}
++
++/* remove begining spaces */
++char *skip_spaces(char *p)
++{
++    while (*p && *p <= ' ') {
++	p++;
++    }
++
++    return p;
++}
++
++/* remove trailing & begining spaces */
++char *remove_spaces(char *p)
++{
++    char *save = p;
++    p += strlen(p) - 1;
++    while (*p && *p <= ' ') {
++	*p = '\0';
++	p--;
++    }
++    p = save;
++    while (*p && *p <= ' ') {
++	p++;
++    }
++
++    return p;
++}
++
++/* remove trailing LF */
++char *remove_trailing_lf(char *p)
++{
++    char *save = p;
++    p += strlen(p) - 1;
++    while (*p && *p == 10) {
++	*p = '\0';
++	p--;
++    }
++    p = save;
++
++    return p;
++}
++
++/* delete multiple spaces, one is enough */
++char *del_multi_spaces(char *p)
++{
++    /* Saving the original pointer */
++    char *save = p;
++
++    /* Let's parse the complete string
++     * As we search for a double spacing
++     * we have to be sure then string is
++     * long enough to be processed */
++    while (*p && *(p + 1)) {
++
++	/* If we have two consecutive spaces */
++	if ((*p == ' ') && (*(p + 1) == ' ')) {
++
++	    /* Let's copy to the current position
++	     * the content from the second space*/
++	    strlcpy(p, p + 1, strlen(p + 1));
++
++	    /* Don't increment the pointer as we
++	     * changed the content of the current position*/
++	    continue;
++	}
++
++	/* Nothing as been found, let's see on the next char */
++	p++;
++    }
++    /* Returning the original pointer */
++    return save;
++}
++
++/* Reset the more_printf counter */
++void reset_more_printf(void)
++{
++    display_line_nb = 0;
++}
++
++int draw_background(const char *what)
++{
++    if (!what)
++	return vesacon_default_background();
++    else
++	return vesacon_load_background(what);
++}
++
++void init_console(struct s_hardware *hardware)
++{
++    if (vesamode) {
++	openconsole(&dev_rawcon_r, &dev_vesaserial_w);
++	draw_background(hardware->vesa_background);
++    } else
++	console_ansi_raw();
++}
++
++void detect_hardware(struct s_hardware *hardware)
++{
++    if (!quiet)
++        more_printf("ACPI: Detecting\n");
++    detect_acpi(hardware);
++
++    if (!quiet)
++        more_printf("MEMORY: Detecting\n");
++    detect_memory(hardware);
++
++    if (!quiet)
++        more_printf("DMI: Detecting Table\n");
++    if (detect_dmi(hardware) == -ENODMITABLE) {
++        more_printf("DMI: ERROR ! Table not found ! \n");
++        more_printf("DMI: Many hardware components will not be detected ! \n");
++    } else {
++        if (!quiet)
++            more_printf("DMI: Table found ! (version %u.%u)\n",
++                        hardware->dmi.dmitable.major_version,
++                        hardware->dmi.dmitable.minor_version);
++    }
++
++    if (!quiet)
++        more_printf("CPU: Detecting\n");
++    cpu_detect(hardware);
++
++    if (!quiet)
++        more_printf("DISKS: Detecting\n");
++    detect_disks(hardware);
++
++    if (!quiet)
++        more_printf("VPD: Detecting\n");
++    detect_vpd(hardware);
++
++    detect_pci(hardware);
++    if (!quiet)
++        more_printf("PCI: %d Devices Found\n", hardware->nb_pci_devices);
++ 
++   if (!quiet)
++        more_printf("PXE: Detecting\n");
++    detect_pxe(hardware);
++
++    if (!quiet)
++        more_printf("VESA: Detecting\n");
++    detect_vesa(hardware);
++}
++
+diff --git a/com32/inventory/hdt-common.h b/com32/inventory/hdt-common.h
+new file mode 100644
+index 0000000..7c0cfdf
+--- /dev/null
++++ b/com32/inventory/hdt-common.h
+@@ -0,0 +1,250 @@
++/* ----------------------------------------------------------------------- *
++ *
++ *   Copyright 2009 Erwan Velu - All Rights Reserved
++ *
++ *   Permission is hereby granted, free of charge, to any person
++ *   obtaining a copy of this software and associated documentation
++ *   files (the "Software"), to deal in the Software without
++ *   restriction, including without limitation the rights to use,
++ *   copy, modify, merge, publish, distribute, sublicense, and/or
++ *   sell copies of the Software, and to permit persons to whom
++ *   the Software is furnished to do so, subject to the following
++ *   conditions:
++ *
++ *   The above copyright notice and this permission notice shall
++ *   be included in all copies or substantial portions of the Software.
++ *
++ *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ *   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
++ *   OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ *   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
++ *   HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++ *   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ *   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ *   OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * -----------------------------------------------------------------------
++ */
++
++#ifndef DEFINE_HDT_COMMON_H
++#define DEFINE_HDT_COMMON_H
++#include <stdio.h>
++#include <syslinux/pxe.h>
++#include <console.h>
++#include <consoles.h>
++#include <syslinux/vesacon.h>
++#include "sys/pci.h"
++
++#include <disk/bootloaders.h>
++#include <disk/errno_disk.h>
++#include <disk/error.h>
++#include <disk/geom.h>
++#include <disk/mbrs.h>
++#include <disk/msdos.h>
++#include <disk/partition.h>
++#include <disk/swsusp.h>
++#include <disk/read.h>
++
++#include "cpuid.h"
++#include "dmi/dmi.h"
++#include "hdt-ata.h"
++#include <lib/sys/vesa/vesa.h>
++#include <vpd/vpd.h>
++#include <libansi.h>
++#include <acpi/acpi.h>
++#include <libupload/upload_backend.h>
++
++/* This two values are used for switching for the menu to the CLI mode */
++#define HDT_SWITCH_TO_CLI "hdt_switch_to_cli"
++#define HDT_DUMP "hdt_dump"
++#define HDT_RETURN_TO_CLI 100
++#define MAX_VESA_MODES 255
++
++/* This value is used for rebooting from the menu mode */
++#define HDT_REBOOT "hdt_reboot"
++
++/* The maximum number of commands we can process */
++#define MAX_NB_AUTO_COMMANDS 255
++/* The maximum size of a command */
++#define AUTO_COMMAND_SIZE 255
++/* The char that separate two commands */
++#define AUTO_SEPARATOR ";"
++/* The char that surround the list of commands */
++#define AUTO_DELIMITER '\'' 
++
++/* Graphic to load in background when using the vesa mode */
++#define CLI_DEFAULT_BACKGROUND "backgnd.png"
++
++/* The maximum number of lines */
++#define MAX_CLI_LINES 20
++#define MAX_VESA_CLI_LINES 24
++
++struct upload_backend *upload;
++
++/* Defines if the cli is quiet*/
++bool quiet;
++
++/* Defines if the cli is totally silent*/
++bool silent;
++
++/* Defines if we must use the vesa mode */
++bool vesamode;
++
++/* Defines if we must use the menu mode */
++bool menumode;
++
++/* Defines if we are running the auto mode */
++bool automode;
++
++/* Defines the number of lines in the console
++ * Default is 20 for a std console */
++extern int max_console_lines;
++
++extern int display_line_nb;
++extern bool disable_more_printf;
++
++#define pause_printf() do {\
++       printf("--More--");\
++       get_key(stdin, 0);\
++       printf("\033[2K\033[1G\033[1F\n");\
++} while (0);
++
++/* The brokeness of that macro is that
++ * it assumes that __VA_ARGS__ contains
++ * one \n (and only one)
++ */
++#define more_printf(...) do {\
++ if (__likely(!silent)) {\
++  if (__likely(!disable_more_printf)) {\
++   if (display_line_nb == max_console_lines) {\
++    display_line_nb=0;\
++    printf("\n--More--");\
++    get_key(stdin, 0);\
++    printf("\033[2K\033[1G\033[1F");\
++   }\
++   display_line_nb++;\
++  }\
++  printf(__VA_ARGS__);\
++ }\
++} while (0);
++
++/* Display CPU registers for debugging purposes */
++static inline void printregs(const com32sys_t * r)
++{
++    printf("eflags = %08x  ds = %04x  es = %04x  fs = %04x  gs = %04x\n"
++	   "eax = %08x  ebx = %08x  ecx = %08x  edx = %08x\n"
++	   "ebp = %08x  esi = %08x  edi = %08x  esp = %08x\n",
++	   r->eflags.l, r->ds, r->es, r->fs, r->gs,
++	   r->eax.l, r->ebx.l, r->ecx.l, r->edx.l,
++	   r->ebp.l, r->esi.l, r->edi.l, r->_unused_esp.l);
++}
++
++struct s_pxe {
++    uint16_t vendor_id;
++    uint16_t product_id;
++    uint16_t subvendor_id;
++    uint16_t subproduct_id;
++    uint8_t rev;
++    uint8_t pci_bus;
++    uint8_t pci_dev;
++    uint8_t pci_func;
++    uint8_t base_class;
++    uint8_t sub_class;
++    uint8_t prog_intf;
++    uint8_t nictype;
++    char mac_addr[18];		/* The current mac address */
++    uint8_t ip_addr[4];
++    pxe_bootp_t dhcpdata;	/* The dhcp answer */
++    struct pci_device *pci_device;	/* The matching pci device */
++    uint8_t pci_device_pos;	/* It position in our pci sorted list */
++};
++
++struct s_vesa_mode_info {
++    struct vesa_mode_info mi;
++    uint16_t mode;
++};
++
++struct s_vesa {
++    uint8_t major_version;
++    uint8_t minor_version;
++    struct s_vesa_mode_info vmi[MAX_VESA_MODES];
++    uint8_t vmi_count;
++    uint16_t total_memory;
++    char vendor[256];
++    char product[256];
++    char product_revision[256];
++    uint16_t software_rev;
++};
++
++struct s_hardware {
++    s_dmi dmi;			/* DMI table */
++    s_cpu cpu;			/* CPU information */
++    uint8_t physical_cpu_count; /* Number of physical cpu */
++    s_vpd vpd;			/* VPD information */
++    s_acpi acpi;
++    struct pci_domain *pci_domain;	/* PCI Devices */
++    struct driveinfo disk_info[256];	/* Disk Information */
++    uint32_t mbr_ids[256];	/* MBR ids */
++    int disks_count;		/* Number of detected disks */
++    struct s_pxe pxe;
++    struct s_vesa vesa;
++    unsigned long detected_memory_size;	/* The detected memory size (in KB) */
++
++    int pci_ids_return_code;
++    int modules_pcimap_return_code;
++    int modules_alias_return_code;
++    int nb_pci_devices;
++    bool is_dmi_valid;
++    bool is_pxe_valid;
++    bool is_vesa_valid;
++    bool is_vpd_valid;
++    bool is_acpi_valid;
++
++    bool dmi_detection;		/* Does the dmi stuff has already been detected? */
++    bool pci_detection;		/* Does the pci stuff has already been detected? */
++    bool cpu_detection;		/* Does the cpu stuff has already been detected? */
++    bool disk_detection;	/* Does the disk stuff has already been detected? */
++    bool pxe_detection;		/* Does the pxe stuff has already been detected? */
++    bool vesa_detection;	/* Does the vesa sutff have been already detected? */
++    bool vpd_detection;		/* Does the vpd stuff has already been detected? */
++    bool memory_detection;	/* Does the memory size got detected ?*/
++    bool acpi_detection;	/* Does the acpi got detected ?*/
++
++    char syslinux_fs[22];
++    const struct syslinux_version *sv;
++    char modules_pcimap_path[255];
++    char modules_alias_path[255];
++    char pciids_path[255];
++    char dump_path[255]; /* Dump path on the tftp server */
++    char dump_filename[255]; /* Dump filename on the tftp server */
++    char tftp_ip[255];   /* IP address of tftp server (dump mode) */
++    char memtest_label[255];
++    char auto_label[AUTO_COMMAND_SIZE];
++    char vesa_background[255];
++    char postexec[255];
++};
++
++void reset_more_printf(void);
++const char *find_argument(const char **argv, const char *argument);
++char *remove_spaces(char *p);
++char *remove_trailing_lf(char *p);
++char *skip_spaces(char *p);
++char *del_multi_spaces(char *p);
++int detect_dmi(struct s_hardware *hardware);
++int detect_vpd(struct s_hardware *hardware);
++void detect_disks(struct s_hardware *hardware);
++void detect_pci(struct s_hardware *hardware);
++void cpu_detect(struct s_hardware *hardware);
++int detect_pxe(struct s_hardware *hardware);
++void init_hardware(struct s_hardware *hardware);
++void clear_screen(void);
++void detect_syslinux(struct s_hardware *hardware);
++int detect_acpi(struct s_hardware *hardware);
++void detect_parameters(const int argc, const char *argv[],
++		       struct s_hardware *hardware);
++int detect_vesa(struct s_hardware *hardware);
++void detect_memory(struct s_hardware *hardware);
++void init_console(struct s_hardware *hardware);
++void detect_hardware(struct s_hardware *hardware);
++void dump(struct s_hardware *hardware,char *);
++#endif
+diff --git a/com32/inventory/hdt-dump-hdt.c b/com32/inventory/hdt-dump-hdt.c
+new file mode 100644
+index 0000000..38faeaf
+--- /dev/null
++++ b/com32/inventory/hdt-dump-hdt.c
+@@ -0,0 +1,56 @@
++/* ----------------------------------------------------------------------- *
++ *
++ *   Copyright 2011 Erwan Velu - All Rights Reserved
++ *
++ *   Permission is hereby granted, free of charge, to any person
++ *   obtaining a copy of this software and associated documentation
++ *   files (the "Software"), to deal in the Software without
++ *   restriction, including without limitation the rights to use,
++ *   copy, modify, merge, publish, distribute, sublicense, and/or
++ *   sell copies of the Software, and to permit persons to whom
++ *   the Software is furnished to do so, subject to the following
++ *   conditions:
++ *
++ *   The above copyright notice and this permission notice shall
++ *   be included in all copies or substantial portions of the Software.
++ *
++ *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ *   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
++ *   OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ *   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
++ *   HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++ *   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ *   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ *   OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * -----------------------------------------------------------------------
++ */
++
++#include "hdt-common.h"
++#include "hdt-dump.h"
++#include <syslinux/config.h>
++
++void dump_hdt(struct s_hardware *hardware, ZZJSON_CONFIG *config, ZZJSON **item,char * xmldata) {
++	(void) hardware;
++	CREATE_NEW_OBJECT;
++	add_s("xml",xmldata);
++	FLUSH_OBJECT
++	to_cpio("xmlinventory");
++}
++// void dump_hdt(struct s_hardware *hardware, ZZJSON_CONFIG *config, ZZJSON **item,char * xmldata) {
++// (void) hardware;
++// 	CREATE_NEW_OBJECT;
++// 	add_s("hdt.product_name",PRODUCT_NAME);
++// 	add_s("hdt.version",VERSION);
++// 	add_s("hdt.code_name",CODENAME);
++// 	add_s("hdt.author", AUTHOR);
++// 	add_s("hdt.core_developer", CORE_DEVELOPER);
++// 	char *contributors[NB_CONTRIBUTORS] = CONTRIBUTORS;
++// 	for (int c = 0; c < NB_CONTRIBUTORS; c++) {
++// 		add_s("hdt.contributor", contributors[c]);
++// 	}
++// 	add_s("hdt.website",WEBSITE_URL);
++// 	add_s("hdt.irc_channel",IRC_CHANNEL);
++// 	FLUSH_OBJECT
++// 	to_cpio("hdt");
++// }
+\ No newline at end of file
+diff --git a/com32/inventory/hdt-dump.c b/com32/inventory/hdt-dump.c
+new file mode 100644
+index 0000000..87570f5
+--- /dev/null
++++ b/com32/inventory/hdt-dump.c
+@@ -0,0 +1,228 @@
++/* ----------------------------------------------------------------------- *
++ *
++ *   Copyright 2011 Erwan Velu - All Rights Reserved
++ *
++ *   Permission is hereby granted, free of charge, to any person
++ *   obtaining a copy of this software and associated documentation
++ *   files (the "Software"), to deal in the Software without
++ *   restriction, including without limitation the rights to use,
++ *   copy, modify, merge, publish, distribute, sublicense, and/or
++ *   sell copies of the Software, and to permit persons to whom
++ *   the Software is furnished to do so, subject to the following
++ *   conditions:
++ *
++ *   The above copyright notice and this permission notice shall
++ *   be included in all copies or substantial portions of the Software.
++ *
++ *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ *   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
++ *   OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ *   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
++ *   HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++ *   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ *   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ *   OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * -----------------------------------------------------------------------
++ */
++
++#include <stdio.h>
++#include <string.h>
++#include <stdlib.h>
++#include <ctype.h>
++#include <getkey.h>
++#include <syslinux/config.h>
++#include "hdt-common.h"
++#include "hdt-dump.h"
++
++struct print_buf p_buf;
++
++struct dump_option {
++    char *flag;
++    char *item;
++};
++
++char *get_value_from_option(struct s_hardware *hardware, char *option)
++{
++    struct dump_option dump_options[10];
++    dump_options[0].flag = "%{m}";
++    dump_options[0].item = hardware->pxe.mac_addr;
++
++    dump_options[1].flag = "%{v}";
++    dump_options[1].item = hardware->dmi.system.manufacturer;
++
++    dump_options[2].flag = "%{p}";
++    dump_options[2].item = hardware->dmi.system.product_name;
++
++    dump_options[3].flag = "%{ba}";
++    dump_options[3].item = hardware->dmi.base_board.asset_tag;
++
++    dump_options[4].flag = "%{bs}";
++    dump_options[4].item = hardware->dmi.base_board.serial;
++
++    dump_options[5].flag = "%{ca}";
++    dump_options[5].item = hardware->dmi.chassis.asset_tag;
++
++    dump_options[6].flag = "%{cs}";
++    dump_options[6].item = hardware->dmi.chassis.serial;
++
++    dump_options[7].flag = "%{sk}";
++    dump_options[7].item = hardware->dmi.system.sku_number;
++
++    dump_options[8].flag = "%{ss}";
++    dump_options[8].item = hardware->dmi.system.serial;
++
++    dump_options[9].flag = NULL;
++    dump_options[9].item = NULL;
++
++    for (int i = 0; i < 9; i++) {
++	if (strcmp(option, dump_options[i].flag) == 0) {
++	    return remove_spaces(dump_options[i].item);
++	}
++    }
++
++    return NULL;
++}
++
++char *compute_filename(struct s_hardware *hardware)
++{
++
++    char *filename = malloc(512);
++    snprintf(filename, 512, "%s/%s", hardware->dump_path,
++	     hardware->dump_filename);
++
++    /* Until we found some dump parameters */
++    char *buffer;
++    while ((buffer = strstr(filename, "%{"))) {
++	// Find the end of the parameter
++	char *buffer_end = strstr(buffer, "}");
++
++	// Extracting the parameter between %{ and }
++	char option[8] = { 0 };
++	strncpy(option, buffer, buffer_end - buffer + 1);
++
++	/* Replace this option by its value in the filename 
++	 * Filename is longer than the previous filename we had
++	 * so let's restart from the beginning */
++	filename =
++	    strreplace(filename, option,
++		       get_value_from_option(hardware, option));
++    }
++
++    /* We replace the ":" in the filename by some "-"
++     * This will avoid Microsoft FS turning crazy */
++    chrreplace(filename, ':', '-');
++
++    /* Avoid space to make filename easier to manipulate */
++    chrreplace(filename, ' ', '_');
++
++    return filename;
++}
++
++int dumpprintf(FILE * p, const char *format, ...)
++{
++    va_list ap;
++    int rv;
++
++    (void)p;
++    va_start(ap, format);
++    rv = vbufprintf(&p_buf, format, ap);
++    va_end(ap);
++    return rv;
++}
++
++void to_cpio(char *filename)
++{
++    cpio_writefile(upload, filename, p_buf.buf, p_buf.len);
++    if ((p_buf.buf) && (p_buf.len > 0)) {
++	memset(p_buf.buf, 0, p_buf.len);
++	free(p_buf.buf);
++	p_buf.buf = NULL;
++	p_buf.size = 0;
++	p_buf.len = 0;
++    }
++}
++
++void flush(ZZJSON_CONFIG * config, ZZJSON ** item)
++{
++    zzjson_print(config, *item);
++    zzjson_free(config, *item);
++    *item = NULL;
++}
++
++/**
++ * dump - dump info
++ **/
++void dump(struct s_hardware *hardware, char * xmldata)
++{
++    if (hardware->is_pxe_valid == false) {
++	more_printf("PXE stack was not detected, Dump feature is not available\n");
++	return;
++    }
++
++    const union syslinux_derivative_info *sdi = syslinux_derivative_info();
++    int err = 0;
++    ZZJSON *json = NULL;
++    ZZJSON_CONFIG config = { ZZJSON_VERY_STRICT, NULL,
++	(int (*)(void *))fgetc,
++	NULL,
++	malloc, calloc, free, realloc,
++	stderr, NULL, stdout,
++	(int (*)(void *, const char *,...))dumpprintf,
++	(int (*)(int, void *))fputc
++    };
++
++    memset(&p_buf, 0, sizeof(p_buf));
++
++    /* By now, we only support TFTP reporting */
++    upload = &upload_tftp;
++    upload->name = "tftp";
++
++    /* The following defines the behavior of the reporting */
++    char *arg[64];
++    char *filename = compute_filename(hardware);
++
++    /* The filename */
++    arg[0] = filename;
++    /* The server to upload the file */
++    if (strlen(hardware->tftp_ip) != 0) {
++	arg[1] = hardware->tftp_ip;
++	arg[2] = NULL;
++    } else {
++	arg[1] = NULL;
++	snprintf(hardware->tftp_ip, sizeof(hardware->tftp_ip),
++		 "%u.%u.%u.%u",
++		 ((uint8_t *) & sdi->pxe.ipinfo->serverip)[0],
++		 ((uint8_t *) & sdi->pxe.ipinfo->serverip)[1],
++		 ((uint8_t *) & sdi->pxe.ipinfo->serverip)[2],
++		 ((uint8_t *) & sdi->pxe.ipinfo->serverip)[3]);
++    }
++
++    /* We initiate the cpio to send */
++    cpio_init(upload, (const char **)arg);
++
++//     dump_cpu(hardware, &config, &json);
++//     dump_pxe(hardware, &config, &json);
++//     dump_syslinux(hardware, &config, &json);
++//     dump_vpd(hardware, &config, &json);
++//     dump_vesa(hardware, &config, &json);
++//     dump_disks(hardware, &config, &json);
++//     dump_dmi(hardware, &config, &json);
++//     dump_memory(hardware, &config, &json);
++//     dump_pci(hardware, &config, &json);
++//     dump_acpi(hardware, &config, &json);
++//     dump_kernel(hardware, &config, &json);
++    dump_hdt(hardware, &config, &json, xmldata);
++
++    /* We close & flush the file to send */
++    cpio_close(upload);
++
++    if ((err = flush_data(upload)) != TFTP_OK) {
++	/* As we manage a tftp connection, let's display the associated error message */
++	more_printf("Dump failed !\n");
++	more_printf("TFTP ERROR on  : %s:/%s \n", hardware->tftp_ip, filename);
++	more_printf("TFTP ERROR msg : %s \n", tftp_string_error_message[-err]);
++    } else {
++	more_printf("Dump file sent at %s:/%s\n", hardware->tftp_ip, filename);
++    }
++}
+diff --git a/com32/inventory/hdt-dump.h b/com32/inventory/hdt-dump.h
+new file mode 100644
+index 0000000..36e49d1
+--- /dev/null
++++ b/com32/inventory/hdt-dump.h
+@@ -0,0 +1,85 @@
++/* ----------------------------------------------------------------------- *
++ *
++ *   Copyright 20011 Erwan Velu - All Rights Reserved
++ *
++ *   Permission is hereby granted, free of charge, to any person
++ *   obtaining a copy of this software and associated documentation
++ *   files (the "Software"), to deal in the Software without
++ *   restriction, including without limitation the rights to use,
++ *   copy, modify, merge, publish, distribute, sublicense, and/or
++ *   sell copies of the Software, and to permit persons to whom
++ *   the Software is furnished to do so, subject to the following
++ *   conditions:
++ *
++ *   The above copyright notice and this permission notice shall
++ *   be included in all copies or substantial portions of the Software.
++ *
++ *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ *   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
++ *   OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ *   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
++ *   HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++ *   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ *   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ *   OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * -----------------------------------------------------------------------
++ */
++
++#include <stdio.h>
++#include <string.h>
++#include <stdlib.h>
++#include <ctype.h>
++#include <bufprintf.h>
++#include <zzjson/zzjson.h>
++#include "hdt-common.h"
++
++// Macros to manipulate Arrays
++#define APPEND_ARRAY ZZJSON *temp_array; temp_array = zzjson_array_append(config, *item, zzjson_create_object(config,
++#define APPEND_OBJECT_ARRAY(value) ZZJSON *temp_ar; temp_ar = zzjson_array_append(config, *item, value); *item=temp_ar; 
++#define CREATE_ARRAY *item = zzjson_create_array(config, zzjson_create_object(config, 
++#define add_ai(name,value) name,zzjson_create_number_i(config,value),
++#define add_ahi(value) add_ai(#value,hardware->value)
++#define add_as(name,value) name,zzjson_create_string(config,value),
++#define add_ahs(value) add_as(#value,hardware->value)
++#define END_OF_ARRAY NULL),NULL)
++#define END_OF_APPEND NULL)); *item=temp_array;
++
++// Macros to manipulate objects
++#define CREATE_NEW_OBJECT   *item = zzjson_create_object(config, NULL);
++#define FLUSH_OBJECT flush(config, item); 
++
++// Macros to manipulate integers as objects
++#define add_i(name,value) *item = zzjson_object_append(config, *item, name, zzjson_create_number_i(config, value))
++#define add_hi(value) add_i(#value,hardware->value)
++
++// Macros to manipulate strings as objects
++#define add_s(name,value) *item = zzjson_object_append(config, *item, name, zzjson_create_string(config, value))
++#define add_hs(value) add_s(#value,(char *)hardware->value)
++
++// Macros to manipulate bool as objects
++#define add_bool_true(name) *item = zzjson_object_append(config, *item, (char *)name, zzjson_create_true(config))
++#define add_bool_false(name) *item = zzjson_object_append(config, *item, (char*)name, zzjson_create_false(config))
++#define add_b(name,value) if (value==true) {add_bool_true(name);} else {add_bool_false(name);}
++#define add_hb(value) add_b(#value,hardware->value)
++
++extern struct print_buf p_buf;
++
++void print_and_flush(ZZJSON_CONFIG *config, ZZJSON **item);
++int dumpprintf(FILE *p, const char *format, ...);
++void flush (ZZJSON_CONFIG *config, ZZJSON ** item);
++void to_cpio(char *filename);
++
++void dump_cpu(struct s_hardware *hardware, ZZJSON_CONFIG *config, ZZJSON **item);
++void dump_pxe(struct s_hardware *hardware, ZZJSON_CONFIG *config, ZZJSON **item);
++void dump_syslinux(struct s_hardware *hardware, ZZJSON_CONFIG *config, ZZJSON **item);
++void dump_vpd(struct s_hardware *hardware, ZZJSON_CONFIG *config, ZZJSON **item);
++void dump_vesa(struct s_hardware *hardware, ZZJSON_CONFIG *config, ZZJSON **item);
++void dump_disks(struct s_hardware *hardware, ZZJSON_CONFIG *config, ZZJSON **item);
++void dump_dmi(struct s_hardware *hardware, ZZJSON_CONFIG *config, ZZJSON **item);
++void dump_memory(struct s_hardware *hardware, ZZJSON_CONFIG *config, ZZJSON **item);
++void dump_pci(struct s_hardware *hardware, ZZJSON_CONFIG *config, ZZJSON **item);
++void dump_acpi(struct s_hardware *hardware, ZZJSON_CONFIG *config, ZZJSON **item);
++void dump_kernel(struct s_hardware *hardware, ZZJSON_CONFIG *config, ZZJSON **item);
++void dump_hdt(struct s_hardware *hardware, ZZJSON_CONFIG *config, ZZJSON **item, char *);
++void dump(struct s_hardware *hardware, char *);
+diff --git a/com32/inventory/hdt-util.c b/com32/inventory/hdt-util.c
+new file mode 100644
+index 0000000..b8d743d
+--- /dev/null
++++ b/com32/inventory/hdt-util.c
+@@ -0,0 +1,96 @@
++/* ----------------------------------------------------------------------- *
++ *
++ *   Copyright 2009 Pierre-Alexandre Meyer - All Rights Reserved
++ *
++ *   Permission is hereby granted, free of charge, to any person
++ *   obtaining a copy of this software and associated documentation
++ *   files (the "Software"), to deal in the Software without
++ *   restriction, including without limitation the rights to use,
++ *   copy, modify, merge, publish, distribute, sublicense, and/or
++ *   sell copies of the Software, and to permit persons to whom
++ *   the Software is furnished to do so, subject to the following
++ *   conditions:
++ *
++ *   The above copyright notice and this permission notice shall
++ *   be included in all copies or substantial portions of the Software.
++ *
++ *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ *   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
++ *   OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ *   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
++ *   HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++ *   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ *   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ *   OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * -----------------------------------------------------------------------
++ */
++
++#include <stdio.h>
++#include <string.h>
++
++/* Computing div(x,y) */
++#define sub(val) (((val%1024)*100)>>10)
++#define sub_dec(val) (((val%1000)*100)/1000)
++
++void sectors_to_size(int sectors, char *buffer)
++{
++    int b = (sectors / 2);
++    int mib = b >> 10;
++    int gib = mib >> 10;
++    int tib = gib >> 10;
++
++    if (tib > 0)
++	sprintf(buffer, "%3d.%02d TiB", tib,sub(gib));
++    else if (gib > 0)
++	sprintf(buffer, "%3d.%02d GiB", gib,sub(mib));
++    else if (mib > 0)
++	sprintf(buffer, "%3d.%02d MiB", mib,sub(b));
++    else
++	sprintf(buffer, "%d B", b);
++}
++
++void sectors_to_size_dec(char *previous_unit, int *previous_size, char *unit,
++			 int *size, int sectors)
++{
++    *size = sectors / 2;	// Converting to bytes
++    strlcpy(unit, "KB", 2);
++    strlcpy(previous_unit, unit, 2);
++    *previous_size = *size;
++    if (*size > 1000) {
++	*size = *size / 1000;
++	strlcpy(unit, "MB", 2);
++	if (*size > 1000) {
++	    *previous_size = *size;
++	    *size = *size / 1000;
++	    strlcpy(previous_unit, unit, 2);
++	    strlcpy(unit, "GB", 2);
++	    if (*size > 1000) {
++		*previous_size = *size;
++		*size = *size / 1000;
++		strlcpy(previous_unit, unit, 2);
++		strlcpy(unit, "TB", 2);
++	    }
++	}
++    }
++}
++
++/* Return the human readable size of device
++ * This function avoid disk's size rounding while
++ * not using float as they aren't currently supported */
++void sectors_to_size_dec2(int sectors, char *buffer)
++{
++    int b = (sectors / 2);
++    int mib = b / 1000;
++    int gib = mib / 1000;
++    int tib = gib / 1000;
++
++    if (tib > 0)
++	sprintf(buffer, "%3d.%02d TB", tib,sub_dec(gib));
++    else if (gib > 0)
++	sprintf(buffer, "%3d.%02d GB", gib,sub_dec(mib));
++    else if (mib > 0)
++	sprintf(buffer, "%3d.%02d MB", mib,sub_dec(b));
++    else
++	sprintf(buffer, "%d B", b);
++}
+diff --git a/com32/inventory/hdt-util.h b/com32/inventory/hdt-util.h
+new file mode 100644
+index 0000000..9e3769e
+--- /dev/null
++++ b/com32/inventory/hdt-util.h
+@@ -0,0 +1,34 @@
++/* ----------------------------------------------------------------------- *
++ *
++ *   Copyright 2009 Pierre-Alexandre Meyer - All Rights Reserved
++ *
++ *   Permission is hereby granted, free of charge, to any person
++ *   obtaining a copy of this software and associated documentation
++ *   files (the "Software"), to deal in the Software without
++ *   restriction, including without limitation the rights to use,
++ *   copy, modify, merge, publish, distribute, sublicense, and/or
++ *   sell copies of the Software, and to permit persons to whom
++ *   the Software is furnished to do so, subject to the following
++ *   conditions:
++ *
++ *   The above copyright notice and this permission notice shall
++ *   be included in all copies or substantial portions of the Software.
++ *
++ *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ *   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
++ *   OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ *   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
++ *   HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++ *   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ *   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ *   OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * -----------------------------------------------------------------------
++ */
++
++#ifndef DEFINE_HDT_UTIL_H
++#define DEFINE_HDT_UTIL_H
++void sectors_to_size(int, char *);
++void sectors_to_size_dec(char *, int *, char *, int *, int);
++void sectors_to_size_dec2(int sectors, char *buffer);
++#endif
+diff --git a/com32/inventory/hdt.h b/com32/inventory/hdt.h
+new file mode 100644
+index 0000000..e385417
+--- /dev/null
++++ b/com32/inventory/hdt.h
+@@ -0,0 +1,47 @@
++/* ----------------------------------------------------------------------- *
++ *
++ *   Copyright 2009 Erwan Velu - All Rights Reserved
++ *
++ *   Permission is hereby granted, free of charge, to any person
++ *   obtaining a copy of this software and associated documentation
++ *   files (the "Software"), to deal in the Software without
++ *   restriction, including without limitation the rights to use,
++ *   copy, modify, merge, publish, distribute, sublicense, and/or
++ *   sell copies of the Software, and to permit persons to whom
++ *   the Software is furnished to do so, subject to the following
++ *   conditions:
++ *
++ *   The above copyright notice and this permission notice shall
++ *   be included in all copies or substantial portions of the Software.
++ *
++ *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ *   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
++ *   OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ *   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
++ *   HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++ *   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ *   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ *   OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * -----------------------------------------------------------------------
++ */
++
++#ifndef DEFINE_HDT_H
++#define DEFINE_HDT_H
++
++#define PRODUCT_NAME "Hardware Detection Tool"
++#define AUTHOR "Erwan Velu"
++#define CORE_DEVELOPER "Pierre-Alexandre Meyer"
++#define CONTACT "hdt@zytor.com"
++#define VERSION "0.5.2"
++#define CODENAME "Manon"
++#define NB_CONTRIBUTORS 3
++#define CONTRIBUTORS {"Sebastien Gonzalve (Patches)", "Gert Hulselmans (Tests)", "Alexander Andino (Design)"}
++#define WEBSITE_URL "http://hdt-project.org"
++#define IRC_CHANNEL "#hdt on freenode"
++
++#define ATTR_PACKED __attribute__((packed))
++
++#define WITH_MENU_DISPLAY 1
++
++#endif
+diff --git a/com32/inventory/inventory.c b/com32/inventory/inventory.c
+index 3287e19..b531c17 100644
+--- a/com32/inventory/inventory.c
++++ b/com32/inventory/inventory.c
+@@ -21,14 +21,7 @@
+  *   HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+  *   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+  *   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+- *   OTHER DEALINGS IN THE SOFTWARE.
+- * /usr/bin/gcc -std=gnu99 -m32 -march=i386 -mpreferred-stack-boundary=2 -Os -fomit-frame-pointer -fno-stack-protector -fwrapv -freg-struct-return -fno-exceptions -fno-asynchronous-unwind-tables -fPIC -falign-functions=0 -falign-jumps=0 -falign-labels=0 -falign-loops=0 -mregparm=3 -DREGPARM=3 -W -Wall -Wstrict-prototypes -W -Wall -fomit-frame-pointer -D__COM32__ -D__FIRMWARE_BIOS__ -DDYNAMIC_MODULE -nostdinc -iwithprefix include -I/root/syslinux-6.04-pre1/com32/libutil/include -I/root/syslinux-6.04-pre1/com32/include -I/root/syslinux-6.04-pre1/com32/include/sys -I/root/syslinux-6.04-pre1/com32/gplinclude -I/root/syslinux-6.04-pre1/core/include -I/root/syslinux-6.04-pre1/bios -DLDLINUX="ldlinux.c32" -I/root/syslinux-6.04-pre1/com32/modules/../../core/lwip/src/include -I/root/syslinux-6.04-pre1/com32/modules/../../core/lwip/src/include/ipv4 -I/root/syslinux-6.04-pre1/com32/gplinclude -c  /root/syslinux-6.04-pre1/com32/modules/inventory.c -o /root/dede.prog
+-
+- 
+- 
+- /usr/bin/gcc -std=gnu99 -m32 -march=i386 -mpreferred-stack-boundary=2 -Os -fomit-frame-pointer -fno-stack-protector -fwrapv -freg-struct-return -fno-exceptions -fno-asynchronous-unwind-tables -fPIC -falign-functions=0 -falign-jumps=0 -falign-labels=0 -falign-loops=0 -mregparm=3 -DREGPARM=3 -W -Wall -Wstrict-prototypes -W -Wall -fomit-frame-pointer -D__COM32__ -D__FIRMWARE_BIOS__ -DDYNAMIC_MODULE -nostdinc -iwithprefix include -I/root/syslinux-6.04-pre1/com32/libutil/include -I/root/syslinux-6.04-pre1/com32/include -I/root/syslinux-6.04-pre1/com32/include/sys -I/root/syslinux-6.04-pre1/com32/gplinclude -I/root/syslinux-6.04-pre1/core/include -I/root/syslinux-6.04-pre1/bios -DLDLINUX="ldlinux.c32" -I/root/syslinux-6.04-pre1/com32/modules/../../core/lwip/src/include -I/root/syslinux-6.04-pre1/com32/modules/../../core/lwip/src/include/ipv4 -I/root/syslinux-6.04-pre1/com32/gplinclude -L/root/syslinux-6.04-pre1/bios/core -llpxelinux.a -c  /root/syslinux-6.04-pre1/com32/modules/inventory.c -o /root/dede.prog
+- 
+- 
++ *   OTHER DEALINGS IN THE SOFTWARE. 
+  * -----------------------------------------------------------------------
+ */
+ 
+@@ -43,7 +36,6 @@
+ #include <console.h>
+ #include "dmi/dmi.h"
+ #include <stdio.h>
+-
+ #include "inventory.h"
+ #include "syslinux/pxe.h"
+ #include <syslinux/boot.h>
+@@ -54,60 +46,24 @@
+ #include <string.h>
+ #include "../cmenu/libmenu/cmenu.h"
+ #include "../cmenu/libmenu/com32io.h"
+-#include <netinet/in.h>
+-
+-
+-#include <disk/common.h>
+-#include <disk/geom.h>
+-#include <disk/read.h>
+-#include <core.h>
+-#include <net.h>
++// #include <netinet/in.h>
++// #include <disk/common.h>
++// #include <disk/geom.h>
++// #include <disk/read.h>
++// #include <core.h>
++// #include <net.h>
+ 
+ #include <libupload/upload_backend.h>
+ 
++#include "hdt-common.h"
+ 
+-// #include "lwip/err.h"
+-// #include "lwip/udp.h"
+-// 
+-// #include "lwip/ip_addr.h"
+-// #include "lwip/memp.h"
+-// 
+-// #include "lwip/opt.h"
+-// 
+-// #include "lwip/init.h"
+-// #include "lwip/stats.h"
+-// #include "lwip/sys.h"
+-// #include "lwip/mem.h"
+-// #include "lwip/pbuf.h"
+-// #include "lwip/netif.h"
+-// #include "lwip/sockets.h"
+-// #include "lwip/ip.h"
+-// #include "lwip/raw.h"
+-// 
+-// #include "lwip/tcp_impl.h"
+-// #include "lwip/snmp_msg.h"
+-// #include "lwip/autoip.h"
+-// #include "lwip/igmp.h"
+-// #include "lwip/dns.h"
+-// #include "lwip/timers.h"
+-// #include "netif/etharp.h"
+-
+-// #include <stdlib.h>
+-// #include <string.h>
+-// #include <stdio.h>
+-// #include <getkey.h>
+-// #include "syslinux/config.h"
+-// #include "../lib/sys/vesa/vesa.h"
+-// 
+-// #include <disk/util.h>
+-// #include <disk/mbrs.h>
+-// #include <memory.h>
+-
++int display_line_nb = 0;
++bool disable_more_printf = false;
+ int result0,result1,result2;
+-
++int max_console_lines = MAX_CLI_LINES;
+ #define sub(val) (((val%1024)*100)>>10)
+ void timeval(struct timeval *tm);
+-int detect_pxe(struct s_pxe *pxe);
++int detect_pxelocal(struct s_pxe *pxe);
+ 
+ static uint8_t frombcd(uint8_t v)
+ { /*binary codage decimal*/
+@@ -145,7 +101,7 @@ void timeval(struct timeval *tm)
+ // get_derivative_info
+ // const union syslinux_derivative_info *sdi =
+ // 	syslinux_derivative_info();
+-int detect_pxe(struct s_pxe *pxe)
++int detect_pxelocal(struct s_pxe *pxe)
+ {
+     void *dhcpdata;
+     //struct s_pxe pxe;struct s_pxe *p
+@@ -170,12 +126,17 @@ int detect_pxe(struct s_pxe *pxe)
+ return 0;
+ }
+ 	
++void printpointmsleep(int millisecond, int nbpoint){
++    for (int t=0;t <= nbpoint; t++){
++        msleep(millisecond);
++        printf(".");
++    }
++}	
++	
+ char display_line;
+ 
+-
+-
+ /* Try to detect disks from port 0x80 to 0xff */
+-void detect_disks(struct driveinfo *disk_info, int *nbdisk)
++void detect_diskslocal(struct driveinfo *disk_info, int *nbdisk)
+ {
+     int i = -1;
+     int err;
+@@ -193,7 +154,7 @@ void detect_disks(struct driveinfo *disk_info, int *nbdisk)
+ 	(*nbdisk)++;
+     }
+ }
+-void sectors_to_size(int sectors, char *buffer)
++void sectors_to_sizelocal(int sectors, char *buffer)
+ {
+     int b = (sectors / 2);
+     int mib = b >> 10;
+@@ -211,17 +172,17 @@ void sectors_to_size(int sectors, char *buffer)
+ }
+ 
+ /* remove begining spaces */
+-char *skip_spaces(char *p)
++/*char *skip_spaceslocal(char *p)
+ {
+     while (*p && *p <= ' ') {
+ 	p++;
+     }
+ 
+     return p;
+-}
++}*/
+ 
+ /* remove trailing & begining spaces */
+-char *remove_spaces(char *p)
++char *remove_spaceslocal(char *p)
+ {
+     char *save = p;
+     p += strlen(p) - 1;
+@@ -238,19 +199,19 @@ char *remove_spaces(char *p)
+ }
+ 
+ /* remove trailing LF */
+-char *remove_trailing_lf(char *p)
+-{
+-    char *save = p;
+-    p += strlen(p) - 1;
+-    while (*p && *p == 10) {
+-	*p = '\0';
+-	p--;
+-    }
+-    p = save;
+-
+-    return p;
+-}
+-void disks_summary(struct driveinfo *disk_info)
++// char *remove_trailing_lflocal(char *p)
++// {
++//     char *save = p;
++//     p += strlen(p) - 1;
++//     while (*p && *p == 10) {
++// 	*p = '\0';
++// 	p--;
++//     }
++//     p = save;
++// 
++//     return p;
++// }
++void disks_summarylocal(struct driveinfo *disk_info)
+ {
+     int i = -1;
+     bool found = false;
+@@ -264,7 +225,7 @@ void disks_summary(struct driveinfo *disk_info)
+ 	char disk_size[11];
+ 
+ 	if ((int)d->edd_params.sectors > 0)
+-	    sectors_to_size((int)d->edd_params.sectors, disk_size);
++	    sectors_to_sizelocal((int)d->edd_params.sectors, disk_size);
+ 	else
+ 	    memset(disk_size, 0, sizeof disk_size);
+ 
+@@ -278,8 +239,8 @@ void disks_summary(struct driveinfo *disk_info)
+ 	/* Do not print Host Bus & Interface if EDD isn't 3.0 or more */
+ 	if (d->edd_version >= 0x30)
+ 	    moreprintf("         Host bus: %s, Interface type: %s\n\n",
+-			remove_spaces((char *)d->edd_params.host_bus_type),
+-			remove_spaces((char *)d->edd_params.interface_type));
++			remove_spaceslocal((char *)d->edd_params.host_bus_type),
++			remove_spaceslocal((char *)d->edd_params.interface_type));
+     }
+ 
+     if (found == false)
+@@ -300,97 +261,12 @@ void disks_size_first_disk(struct driveinfo *disk_info, char *disk_size)
+     //char disk_size[11];
+ 
+     if ((int)d->edd_params.sectors > 0)
+-        sectors_to_size((int)d->edd_params.sectors, disk_size);
++        sectors_to_sizelocal((int)d->edd_params.sectors, disk_size);
+     else
+         memset(disk_size, 0, sizeof disk_size);
+ }
+-// void core_udp_sendto(struct pxe_pvt_inode *socket, const void *data, size_t len,
+-//                      uint32_t ip, uint16_t port)
+-// {
+-//     static __lowmem struct s_PXENV_UDP_WRITE udp_write;
+-//     void *lbuf;
+-//     uint16_t tid;
+-//     IP4_ADDR1(tid,127,0,0,1);
+-// 
+-//     lbuf = lmalloc(len);
+-//     if (!lbuf)
+-// 	return;
+-// 
+-//     memcpy(lbuf, data, len);
+-//     udp_write.buffer    = FAR_PTR(lbuf);
+-//     udp_write.ip        = ip;
+-//     udp_write.gw        = gateway(udp_write.ip);
+-//     udp_write.src_port  = tid;
+-//     udp_write.dst_port  = htons(port);
+-//     udp_write.buffer_size = len;
+-// 
+-//     pxe_call(PXENV_UDP_WRITE, &udp_write);
+-// 
+-//     lfree(lbuf);
+-// }
+-//   /*
+-//  * Compute the suitable gateway for a specific route -- too many
+-//  * vendor PXE stacks don't do this correctly...
+-//  */
+-// static inline uint32_t gateway(uint32_t ip)
+-// {
+-//     if ((ip ^ IPInfo.myip) & IPInfo.netmask)
+-// 	return IPInfo.gateway;
+-//     else
+-// 	return 0;
+-// }
+-
+-int senddata( const char * buffer, uint32_t *myip , uint32_t *toip, uint32_t *gwip, uint16_t  toport, uint16_t  fromport ){
+-    void *lbuf;
+-    struct s_PXENV_UDP_OPEN udp_open;
+-    udp_open.status = 0;//PXENV_STATUS_FAILURE
+-    udp_open.src_ip = *myip;
+-//     result0 = pxe_call(PXENV_UDP_OPEN, &udp_open);
+-//     if (udp_open.status != PXENV_STATUS_SUCCESS) {
+-// 	printf("probleme ouverture udp connexion: %d\n", udp_open.status);
+-//     }
+-    int err = pxe_call(PXENV_UDP_OPEN, &udp_open);
+-    if (err || udp_open.status) {
+-        printf("Failed to initialize UDP stack ");
+-        printf("%d\n", udp_open.status);
+-	kaboom();
+-        return 0;
+-    }
+-    lbuf = lmalloc(sizeof(buffer));
+-    if (!lbuf)
+-	return 0;
+-    memcpy(lbuf, buffer, sizeof(buffer));
+-    printf("PXENV_STATUS_FAILURE=%d\n",PXENV_STATUS_FAILURE);
+-    struct s_PXENV_UDP_WRITE udp_write;
+-    udp_write.status = 0;
+-    udp_write.ip = *toip;
+-    udp_write.gw = *gwip;
+-    udp_write.src_port = htons(fromport);
+-    udp_write.dst_port = htons(toport);
+-    udp_write.buffer = FAR_PTR(lbuf);
+-    udp_write.buffer_size = sizeof(buffer);
+-
+-    result1 = pxe_call(PXENV_UDP_WRITE, &udp_write);
+-    if (udp_write.status != PXENV_STATUS_UDP_OPEN) {
+-	printf("probleme ecriture udp connexion: %d\n", udp_write.status);
+-    }
+-    lfree(lbuf);
+-    struct s_PXENV_UDP_CLOSE udp_close;
+-    udp_close.status = 1;
+-     result2 = pxe_call(PXENV_UDP_CLOSE, &udp_close);
+-    if (udp_close.status != PXENV_STATUS_UDP_CLOSED) {
+-	printf("probleme ecriture udp connexion: %d\n", udp_close.status);
+-    }
+ 
+-    printf("\n\nPXENV_STATUS_FAILURE %d\n", PXENV_STATUS_FAILURE);
+-    printf("\n\nPXENV_STATUS_UDP_OPEN %d\n", PXENV_STATUS_UDP_OPEN);
+-    printf("PXENV_STATUS_UDP_CLOSED %d\n", PXENV_STATUS_UDP_CLOSED);
+-    printf("probleme ouverture udp %d\n", udp_open.status);
+-    printf("probleme ecriture udp : %d\n", udp_write.status);
+-    printf("probleme close udp %d\n", udp_close.status);
+-    return result2;
+-}
+-int main(void)//const int argc, const char *argv[]
++int main(const int argc, const char *argv[])
+ {
+     char buffer[1024];
+     char hostname[90];
+@@ -399,9 +275,20 @@ int main(void)//const int argc, const char *argv[]
+     size_t len =0;
+     struct driveinfo disk_info[256];	/* Disk Information */
+     int nbdisk=0;
++    
++    
++     char version_string[256];
+     //uint32_t mbr_ids[256];	/* MBR ids */
+-    detect_disks(disk_info, &nbdisk);
+-    disks_summary(disk_info);
++     snprintf(version_string, sizeof version_string, "%s %s (%s)",
++	     PRODUCT_NAME, VERSION, CODENAME);
++    static struct s_hardware hardware;
++    init_hardware(&hardware);
++    detect_syslinux(&hardware);
++    detect_parameters(argc, argv, &hardware);
++    detect_hardware(&hardware);
++    
++    detect_diskslocal(disk_info, &nbdisk);
++    disks_summarylocal(disk_info);
+     //recuperation ip et macadress
+     const union syslinux_derivative_info *sdi;
+     char tftp_ip[50], gateway[50], netmask[50], myip[50], ipver[50], subnet[50];
+@@ -414,15 +301,19 @@ int main(void)//const int argc, const char *argv[]
+     uint32_t toip;
+     uint32_t gwip;
+     uint16_t  toport = 5005;
+-    uint16_t  fromport = 5005;
++    uint16_t  fromport = 5006;
+ 
+     hostname[0]=0;
+     int error = 0;
+     sdi = syslinux_derivative_info();
+-    detect_pxe(&pxe);
++    detect_pxelocal(&pxe);
+     timeval(&tm);
+   
+  
++    
++
++   
++   
+     snprintf(date, sizeof(date),
+ 		 "%04d-%02d-%02d-%02d-%02d-%02d",
+                                     (uint32_t) tm.year,
+@@ -615,13 +506,13 @@ int main(void)//const int argc, const char *argv[]
+     strncat(deviceid,"-",sizeof(deviceid));
+     strncat(deviceid,date,sizeof(deviceid));
+ 
+-    char bufferxml[4000];
++    char bufferxml[8000];
+     char header[1024];
+     char bios[1024];
+-    char hardware[1024];
++    char hardwarelocal[1024];
+     char networks[1024];
+     char storages[1024];
+-    bufferxml[0]=header[0]=bios[0]=hardware[0]=networks[0]=storages[0]=0;
++    bufferxml[0]=header[0]=bios[0]=hardwarelocal[0]=networks[0]=storages[0]=0;
+     snprintf (header, 
+             sizeof(header),
+             "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<REQUEST>\n"
+@@ -657,8 +548,8 @@ int main(void)//const int argc, const char *argv[]
+                                     dmi.system.serial);
+ 
+ 
+-    snprintf (hardware, 
+-           sizeof(hardware),
++    snprintf (hardwarelocal, 
++           sizeof(hardwarelocal),
+            "\t\t<HARDWARE>\n"
+                 "\t\t\t<IPADDR>%s</IPADDR>\n"
+                 "\t\t\t<DEFAULTGATEWAY>%s</DEFAULTGATEWAY>\n"
+@@ -708,95 +599,17 @@ char foot[]="\t</CONTENT>\n"
+ "</REQUEST>";
+         char dataedit[100];
+         clear_entire_screen();
+-
+-    strncpy(bufferxml,header,sizeof(bufferxml));
+-
+-    strncat(bufferxml,bios,sizeof(bufferxml));
+-   
+-    strncat(bufferxml,hardware,sizeof(bufferxml));
+-      
+-    strncat(bufferxml,networks,sizeof(bufferxml));
+-      
+-    strncat(bufferxml,storages,sizeof(bufferxml));
+-       
+-    strncat(bufferxml,foot,sizeof(bufferxml));
+-     
+-    //printf("nbdisk %d",nbdisk);
+-        printf("xml \n%s\n",bufferxml);
+-        printf("Maintenant il faut envoyé ce xml au servuer inventory\n");
+-        printf("faire return pour reboot\n");
+-        fgets( dataedit, sizeof dataedit, stdin);
+-        char buffertest[255];
+-
+-        
+- /*  
+-    senddata("hello", &myipint ,&toip, &gwip, toport, fromport);
+-    printf("%d %d %d %d\n",myipint,toip,gwip,toport);
+-    printf("%d %d %d\n",result0,result1,result2);
+-    fgets((char*) buffertest, sizeof buffertest, stdin);*/
+- // enregistrer xml
+- // cpio_writefile(upload, filename, p_buf.buf, p_buf.len);
+- // envoyer xml
+- 
+-//flush_data(upload)
+-// upload = &upload_tftp;
+-// upload->name = "tftp";
+-// 
+-// char filename[512];
+-// strcpy(filename,"fichiertest");
+-// 
+- upload = &upload_tftp;
+- upload->name = "tftp";
+-
+-//     /* The following defines the behavior of the reporting */
+-//     char *arg[64];
+-//     /* The filename */
+-//     arg[0] = filename;
+-//     arg[1] = tftp_ip;
+-//     arg[2] = NULL;
+-//     /* We initiate the cpio to send */
+-//     cpio_init(upload, (const char **)arg);
+-// 
+-//     cpio_close(upload);
+-   // cpio_writefile(upload, "dede", bufferxml,strlen(bufferxml));
+-//     if ((err = flush_data(upload)) != TFTP_OK) {
+-// 	/* As we manage a tftp connection, let's display the associated error message */
+-// 	more_printf("Dump failed !\n");
+-// 	more_printf("TFTP ERROR on  : %s:/%s \n", hardware->tftp_ip, filename);
+-// 	more_printf("TFTP ERROR num : %d \n", err);
+-// 	more_printf("TFTP ERROR msg : %s \n", tftp_string_error_message[err]);
+-//     } else {
+-// 	more_printf("Dump file sent at %s:/%s\n", hardware->tftp_ip, filename);
+-//     }
+-
++        strncpy(bufferxml,header,sizeof(bufferxml));
++        strncat(bufferxml,bios,sizeof(bufferxml));
++        strncat(bufferxml,hardwarelocal,sizeof(bufferxml));
++        strncat(bufferxml,networks,sizeof(bufferxml));
++        strncat(bufferxml,storages,sizeof(bufferxml));
++        strncat(bufferxml,foot,sizeof(bufferxml));
++        dump(&hardware,bufferxml);
++        clear_entire_screen();
++        printf("Registration machine : %s .",hostname);
++        printpointmsleep(100,30);
+         syslinux_reboot(1);
+-
+     return 0;
+ }
+-// import socket
+-// port = 5000
+-// s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+-// s.bind(("", port))
+-// print "waiting on port:", port
+-// while 1:
+-//     data, addr = s.recvfrom(1024)
+-//     print data
+-// 
+-
+-
+ 
+-    
+-//     struct netif *netif, server_netif;
+-//     struct ip_addr1 ipaddr, pc_ipaddr, netmask, gw;
+-// 
+-// 	/* the mac address of the board*/
+-// 	unsigned char mac_ethernet_address[] = { 0x00, 0x0a, 0x35, 0x00, 0x01, 0x02 };
+-// 	
+-// 	struct pbuf *p;
+-// 	unsigned char buffername[1200] = "my name is xxxxxxx";
+-// 
+-// 	netif = &server_netif;
+-    
+-    
+-    
+-    
+\ No newline at end of file
+diff --git a/com32/inventory/inventory.h b/com32/inventory/inventory.h
+index 2f0bf32..f45b220 100644
+--- a/com32/inventory/inventory.h
++++ b/com32/inventory/inventory.h
+@@ -27,28 +27,35 @@
+ #include <libansi.h>
+ #include <acpi/acpi.h>
+ #include <libupload/upload_backend.h>
++#include <stdio.h>
++#include <string.h>
++#include <stdlib.h>
++#include <ctype.h>
++#include <bufprintf.h>
+ 
+-struct upload_backend *upload;
++extern struct print_buf p_buf;
+ 
+-struct s_pxe {
+-    uint16_t vendor_id;
+-    uint16_t product_id;
+-    uint16_t subvendor_id;
+-    uint16_t subproduct_id;
+-    uint8_t rev;
+-    uint8_t pci_bus;
+-    uint8_t pci_dev;
+-    uint8_t pci_func;
+-    uint8_t base_class;
+-    uint8_t sub_class;
+-    uint8_t prog_intf;
+-    uint8_t nictype;
+-    char mac_addr[18];		/* The current mac address */
+-    uint8_t ip_addr[4];
+-    pxe_bootp_t dhcpdata;	/* The dhcp answer */
+-    struct pci_device *pci_device;	/* The matching pci device */
+-    uint8_t pci_device_pos;	/* It position in our pci sorted list */
+-};
++struct upload_backend *uploadsend;
++
++// struct s_pxe {
++//     uint16_t vendor_id;
++//     uint16_t product_id;
++//     uint16_t subvendor_id;
++//     uint16_t subproduct_id;
++//     uint8_t rev;
++//     uint8_t pci_bus;
++//     uint8_t pci_dev;
++//     uint8_t pci_func;
++//     uint8_t base_class;
++//     uint8_t sub_class;
++//     uint8_t prog_intf;
++//     uint8_t nictype;
++//     char mac_addr[18];		/* The current mac address */
++//     uint8_t ip_addr[4];
++//     pxe_bootp_t dhcpdata;	/* The dhcp answer */
++//     struct pci_device *pci_device;	/* The matching pci device */
++//     uint8_t pci_device_pos;	/* It position in our pci sorted list */
++// };
+ 
+ struct timeval{
+     uint32_t year;
+@@ -65,23 +72,23 @@ struct timeval{
+ //     uint32_t gateway;
+ //     uint32_t netmask;
+ // };
+-#if BYTE_ORDER == BIG_ENDIAN
+-/** Set an IP address given by the four byte-parts */
+-#define IP4_ADDR(ipaddr, a,b,c,d) \
+-        (ipaddr)->addr = ((uint32_t)((a) & 0xff) << 24) | \
+-                         ((uint32_t)((b) & 0xff) << 16) | \
+-                         ((uint32_t)((c) & 0xff) << 8)  | \
+-                          (uint32_t)((d) & 0xff)
+-#else
+-/** Set an IP address given by the four byte-parts.
+-    Little-endian version that prevents the use of htonl. */
+-#define IP4_ADDR(ipaddr, a,b,c,d) \
+-        (ipaddr)->addr = ((uint32_t)((d) & 0xff) << 24) | \
+-                         ((uint32_t)((c) & 0xff) << 16) | \
+-                         ((uint32_t)((b) & 0xff) << 8)  | \
+-                          (uint32_t)((a) & 0xff)
+-#endif
+-                          
++// #if BYTE_ORDER == BIG_ENDIAN
++// /** Set an IP address given by the four byte-parts */
++// #define IP4_ADDR(ipaddr, a,b,c,d) \
++//         (ipaddr)->addr = ((uint32_t)((a) & 0xff) << 24) | \
++//                          ((uint32_t)((b) & 0xff) << 16) | \
++//                          ((uint32_t)((c) & 0xff) << 8)  | \
++//                           (uint32_t)((d) & 0xff)
++// #else
++// /** Set an IP address given by the four byte-parts.
++//     Little-endian version that prevents the use of htonl. */
++// #define IP4_ADDR(ipaddr, a,b,c,d) \
++//         (ipaddr)->addr = ((uint32_t)((d) & 0xff) << 24) | \
++//                          ((uint32_t)((c) & 0xff) << 16) | \
++//                          ((uint32_t)((b) & 0xff) << 8)  | \
++//                           (uint32_t)((a) & 0xff)
++// #endif
++//                           
+ #if BYTE_ORDER == BIG_ENDIAN
+ /** Set an IP address given by the four byte-parts */
+ #define IP4_ADDR1(ipaddr, a,b,c,d) \
+@@ -98,7 +105,7 @@ struct timeval{
+                          ((uint32_t)((b) & 0xff) << 8)  | \
+                           (uint32_t)((a) & 0xff)
+ #endif
+-                          
++//                           
+                           
+                           
+ #endif
+\ No newline at end of file
+-- 
+2.11.0
+

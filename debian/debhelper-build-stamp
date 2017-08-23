@@ -1,0 +1,7 @@
+syslinux
+syslinux-efi
+extlinux
+isolinux
+pxelinux
+syslinux-common
+syslinux-utils

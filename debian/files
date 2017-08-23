@@ -1,0 +1,11 @@
+extlinux-dbgsym_6.03+dfsg-14.1_amd64.deb debug extra
+extlinux_6.03+dfsg-14.1_amd64.deb admin optional
+isolinux_6.03+dfsg-14.1_all.deb admin optional
+pxelinux_6.03+dfsg-14.1_all.deb admin optional
+syslinux-common_6.03+dfsg-14.1_all.deb admin optional
+syslinux-dbgsym_6.03+dfsg-14.1_amd64.deb debug extra
+syslinux-efi_6.03+dfsg-14.1_all.deb admin optional
+syslinux-utils-dbgsym_6.03+dfsg-14.1_amd64.deb debug extra
+syslinux-utils_6.03+dfsg-14.1_amd64.deb admin optional
+syslinux_6.03+dfsg-14.1_amd64.buildinfo admin optional
+syslinux_6.03+dfsg-14.1_amd64.deb admin optional

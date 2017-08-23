@@ -1,0 +1,13 @@
+Package: extlinux-dbgsym
+Source: syslinux
+Version: 3:6.03+dfsg-14.1
+Auto-Built-Package: debug-symbols
+Architecture: amd64
+Maintainer: Debian QA Group <packages@qa.debian.org>
+Installed-Size: 54
+Depends: extlinux (= 3:6.03+dfsg-14.1)
+Section: debug
+Priority: extra
+Homepage: http://www.syslinux.org/
+Description: Debug symbols for extlinux
+Build-Ids: 46dfdd546675ca7050b3dad54dbade0ef529289f
