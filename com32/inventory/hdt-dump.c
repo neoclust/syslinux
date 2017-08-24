@@ -153,11 +153,13 @@ void flush(ZZJSON_CONFIG * config, ZZJSON ** item)
 /**
  * dump - dump info
  **/
-void dump(struct s_hardware *hardware, char * xmldata)
+int dump(struct s_hardware *hardware, char * xmldata)
 {
     if (hardware->is_pxe_valid == false) {
-	more_printf("PXE stack was not detected, Dump feature is not available\n");
-	return;
+        if (hardware->debug){
+            more_printf("PXE stack was not detected, Dump feature is not available\n");
+        }
+	return -1;
     }
 
     const union syslinux_derivative_info *sdi = syslinux_derivative_info();
@@ -219,10 +221,17 @@ void dump(struct s_hardware *hardware, char * xmldata)
 
     if ((err = flush_data(upload)) != TFTP_OK) {
 	/* As we manage a tftp connection, let's display the associated error message */
-	more_printf("Dump failed !\n");
-	more_printf("TFTP ERROR on  : %s:/%s \n", hardware->tftp_ip, filename);
-	more_printf("TFTP ERROR msg : %s \n", tftp_string_error_message[-err]);
+        if (hardware->debug){
+            more_printf("Dump failed !\n");
+            more_printf("TFTP ERROR on  : %s:/%s \n", hardware->tftp_ip, filename);
+            more_printf("TFTP ERROR msg : %s \n", tftp_string_error_message[-err]);
+        }
+        return -1;
     } else {
-	more_printf("Dump file sent at %s:/%s\n", hardware->tftp_ip, filename);
+        if (hardware->debug){
+            more_printf("Dump file sent at %s:/%s\n", hardware->tftp_ip, filename);
+        }
+        return 0;
     }
+    return 0;
 }
