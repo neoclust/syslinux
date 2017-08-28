@@ -1,3 +1,9 @@
+syslinux (3:6.03+dfsg-70) unstable; urgency=medium
+  
+  * Fix release for install on siveo
+
+ -- Nicolas Lécureuil <nicolas.lecureuil@siveo.net>  Thu, 24 Aug 2017 18:39:54 +0000
+
 syslinux (3:6.03+dfsg-15.2) unstable; urgency=medium
 
   * More inventory changes ( 334477e1d9504a0c3a481ab5d1e1169910163764 )
