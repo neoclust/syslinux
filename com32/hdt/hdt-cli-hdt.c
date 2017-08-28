@@ -260,6 +260,15 @@ static void do_dump(int argc __unused, char **argv __unused,
 }
 
 /**
+ * do_dump - dump info
+ **/
+// static void do_input(int argc __unused, char **argv __unused,
+// 		      struct s_hardware *hardware)
+// {
+//     input(hardware);
+// }
+
+/**
  * do_sleep - sleep a number of milliseconds
  **/ 
 static void do_sleep(int argc , char **argv ,

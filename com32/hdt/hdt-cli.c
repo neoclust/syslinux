@@ -761,8 +761,6 @@ void start_auto_mode(struct s_hardware *hardware)
     int nb_commands = 0;
     char *commands[MAX_NB_AUTO_COMMANDS];
 
-    more_printf("\nEntering Auto mode\n");
-
     /* Protecting the auto_label from the strtok modifications */
     char *temp = strdup(hardware->auto_label);
 

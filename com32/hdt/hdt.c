@@ -32,6 +32,23 @@
  * An Hardware Detection Tool
  */
 
+#include <string.h>
+// #include <stdio.h>
+// #include <console.h>
+// #include "dmi/dmi.h"
+// #include <stdio.h>
+// #include "syslinux/pxe.h"
+// #include <syslinux/boot.h>
+// #include "syslinux/config.h"
+// #include "syslinux/pxe_api.h"
+// #include <syslinux/reboot.h>
+// #include <com32.h>
+// #include <string.h>
+// #include "../cmenu/libmenu/cmenu.h"
+// #include "../cmenu/libmenu/com32io.h"
+
+#include "hostname.h"
+#include <stdlib.h>
 #include <stdio.h>
 #include "hdt.h"
 #include "hdt-cli.h"
@@ -49,7 +66,7 @@ int main(const int argc, const char *argv[])
 {
     char version_string[256];
     static struct s_hardware hardware;
-
+//     char buffert[256];
     snprintf(version_string, sizeof version_string, "%s %s (%s)",
 	     PRODUCT_NAME, VERSION, CODENAME);
 
@@ -61,7 +78,9 @@ int main(const int argc, const char *argv[])
 
     /* Detecting parameters */
     detect_parameters(argc, argv, &hardware);
-
+    if(hardware.bhostname){
+        hostname_input(&hardware);
+    }
     /* Opening the Syslinux console */
     init_console(&hardware);
 
@@ -89,6 +108,6 @@ int main(const int argc, const char *argv[])
 	    more_printf("Executing postexec instructions : %s\n",hardware.postexec);
 	    runsyslinuxcmd(hardware.postexec);
     }
-
-    return return_code;
+   
+   return return_code;
 }

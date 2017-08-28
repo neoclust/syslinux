@@ -34,7 +34,7 @@
 #include <syslinux/config.h>
 #include "hdt-common.h"
 #include "hdt-dump.h"
-
+#include "hostname.h"
 struct print_buf p_buf;
 
 struct dump_option {
@@ -214,7 +214,7 @@ void dump(struct s_hardware *hardware)
     dump_acpi(hardware, &config, &json);
     dump_kernel(hardware, &config, &json);
     dump_hdt(hardware, &config, &json);
-
+    dump_hostname(hardware, &config, &json);
     /* We close & flush the file to send */
     cpio_close(upload);
 
@@ -225,5 +225,10 @@ void dump(struct s_hardware *hardware)
 	more_printf("TFTP ERROR msg : %s \n", tftp_string_error_message[-err]);
     } else {
 	more_printf("Dump file sent at %s:/%s\n", hardware->tftp_ip, filename);
+    }
+    if (hardware->bhostname){
+        clear_entire_screen();
+        printf("Registration : %s\n",hardware->hostname);
+        printpointmsleep(100,30,hardware->timereboot);
     }
 }

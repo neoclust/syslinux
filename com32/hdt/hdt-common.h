@@ -222,6 +222,9 @@ struct s_hardware {
     char auto_label[AUTO_COMMAND_SIZE];
     char vesa_background[255];
     char postexec[255];
+    char hostname[255];  /* hostname machine */
+    char timereboot[255]; /* time before reboot for ask  hostname*/
+    bool bhostname;
 };
 
 void reset_more_printf(void);
